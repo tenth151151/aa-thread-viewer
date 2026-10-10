@@ -1,0 +1,34 @@
+{
+    "name": "aa-thread-viewer",
+    "build": {
+        "dockerfile": "./Dockerfile"
+    },
+    "runArgs": [
+        "--add-host=host.docker.internal:host-gateway",
+        "--env-file", "${localWorkspaceFolder}/.devcontainer/.env"
+    ],
+    "containerEnv": {
+        "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+    },
+    "mounts": [
+        "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
+        "source=gh-config-${devcontainerId},target=/home/vscode/.config/gh,type=volume"
+    ],
+    "init": true,
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "editor.wordWrap": "on",
+                "files.autoSave": "afterDelay",
+                "git.terminalGitEditor": true
+            },
+            "extensions": [
+                "GitHub.copilot-chat"
+            ]
+        }
+    },
+    "features": {
+    },
+    "initializeCommand": "cd '${localWorkspaceFolder}/.devcontainer' && { [ -f .env ] || cp .env.example .env; }",
+    "postCreateCommand": "/bin/bash ${containerWorkspaceFolder}/.devcontainer/bin/post-create.sh"
+}
