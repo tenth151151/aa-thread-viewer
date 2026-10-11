@@ -1,0 +1,70 @@
+# Dependabot のバージョン更新の設定。
+# 設定項目の仕様: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+# 脆弱性の更新 (セキュリティ更新) はここでは扱わない。別の Issue で設定する。
+# Dockerfile の ARG と versions.properties は Dependabot の対象外なので、手作業で更新する。
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    # 更新の確認は毎週月曜の朝にする。時刻は timezone で指定した日本時間で読まれる。
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    # 同時に開く PR の数 (open-pull-requests-limit) は、既定の 5 のままにする。
+    # 1 つの依存関係が複数のグループに当たるときは、パターンがより具体的なグループに入る。
+    # dependabot-core の PatternSpecificityCalculator による。"*" は最も弱い。書く順番は関係ない。
+    # どのグループにも入らない依存関係は、単独の PR になる。
+    # 依存関係の名前は、ライブラリが group:name、プラグインがプラグイン ID そのものである。
+    # 例えば AGP は com.android.application になる。
+    # dependabot-core の gradle/lib/dependabot/gradle/file_parser.rb (details_for_plugin_dependency) による。
+    groups:
+      # Compose BOM (androidx.compose:compose-bom) もここに入る。
+      androidx:
+        patterns:
+          - "androidx.*"
+      # Kotlin 本体のライブラリ (org.jetbrains.kotlin:*) と、Kotlin のプラグイン (org.jetbrains.kotlin.*) を入れる。
+      # Compose コンパイラプラグイン (org.jetbrains.kotlin.plugin.compose) も後者に入る。
+      # org.jetbrains.kotlin* と書くと、coroutines など Kotlin とは別に出る org.jetbrains.kotlinx:* にも当たる。
+      # このため、kotlinx を外すように 2 つに分けている。
+      # Compose コンパイラプラグインは Kotlin と同じバージョンで出るので、major も含めていっしょに上げる。
+      # KGP は AGP の要求以上に引き上げられるので、カタログの値を上げてもビルドは壊れない。
+      # 上げたときは、./gradlew buildEnvironment で実際の値を確かめる (gradle/libs.versions.toml のコメントのとおり)。
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin:*"
+          - "org.jetbrains.kotlin.*"
+      # junit、spotless など、上の 2 つ以外をまとめる。
+      # major の更新は破壊的変更を含みうるので、このグループに入れず、単独の PR にする。
+      # AGP と Gradle Wrapper は、影響が大きいので、除外して単独の PR にする。
+      # Gradle Wrapper の依存関係の名前は gradle-wrapper である。
+      # 名前は dependabot-core の gradle/lib/dependabot/gradle/file_parser/distributions_finder.rb にある。
+      # com.android.tools.build:gradle は、plugins ブロックで AGP を使うため、このリポジトリでは使わない名前である。
+      # buildscript の classpath で AGP を入れたときの保険として残している。
+      gradle-others:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "com.android.application"
+          - "com.android.tools.build:gradle"
+          - "gradle-wrapper"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    # すべての Action を 1 つの PR にまとめる。
+    # uses を SHA で固定し、同じ行のコメントにバージョンを書いている。
+    # Dependabot は SHA とコメントのバージョンの両方を更新する。
+    # https://docs.github.com/en/code-security/dependabot/ecosystems-supported-by-dependabot/supported-ecosystems-and-repositories
+    groups:
+      github-actions:
+        patterns:
+          - "*"
