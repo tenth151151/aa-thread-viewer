@@ -6,3 +6,5 @@
 gradlew text eol=lf
 # Windows のバッチファイルは CRLF でないと動かないことがあるので、CRLF に固定する。
 *.bat text eol=crlf
+# versions.properties は Dockerfile と CI が grep / cut で読むので、CRLF だと値の末尾に \r が付いて壊れる。LF に固定する。
+versions.properties text eol=lf

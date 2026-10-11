@@ -1,17 +1,47 @@
+import java.io.StringReader
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
 
+// JDK と Android SDK のバージョンは、リポジトリのルートの versions.properties が唯一の正である。
+// providers.fileContents で読むので、ファイルの内容が configuration cache の入力として追跡される。
+val versions =
+    Properties().apply {
+        val text = providers.fileContents(rootProject.layout.projectDirectory.file("versions.properties")).asText
+        load(StringReader(text.get()))
+    }
+
+fun requiredVersion(key: String): String {
+    // Properties は値の末尾の空白を残すので、trim してから使う。
+    val value = versions.getProperty(key)?.trim()
+    if (value.isNullOrEmpty()) {
+        throw GradleException("versions.properties に $key がないか、値が空です。")
+    }
+    return value
+}
+
+val androidPlatform = requiredVersion("ANDROID_PLATFORM")
+val androidPlatformMatch =
+    Regex("""^android-(\d+)\.(\d+)$""").matchEntire(androidPlatform)
+        ?: throw GradleException(
+            "versions.properties の ANDROID_PLATFORM が android-<major>.<minor> の形式ではありません " +
+                "(例: android-37.0)。現在の値: \"$androidPlatform\"",
+        )
+val androidPlatformMajor = androidPlatformMatch.groupValues[1].toInt()
+val androidPlatformMinor = androidPlatformMatch.groupValues[2].toInt()
+
 android {
     namespace = "io.github.tenth151151.aathreadviewer"
     compileSdk {
         version =
-            release(37) {
-                minorApiLevel = 0
+            release(androidPlatformMajor) {
+                minorApiLevel = androidPlatformMinor
             }
     }
-    buildToolsVersion = "36.0.0"
+    buildToolsVersion = requiredVersion("ANDROID_BUILD_TOOLS")
 
     defaultConfig {
         applicationId = "io.github.tenth151151.aathreadviewer"
