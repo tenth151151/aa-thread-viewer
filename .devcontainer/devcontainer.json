@@ -9,7 +9,8 @@
         "--env-file", "${localWorkspaceFolder}/.devcontainer/.env"
     ],
     "containerEnv": {
-        "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+        "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
+        "TZ": "Asia/Tokyo"
     },
     "mounts": [
         "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
