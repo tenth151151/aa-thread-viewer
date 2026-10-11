@@ -6,6 +6,11 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu
 #   `curl ... | gpg ...` のようなパイプの途中で失敗しても、ビルドが確実に止まるようにする。
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# コンテナ全体のロケールを UTF-8 にする。
+#   未設定 (POSIX) だと tmux が UTF-8 非対応と判断し、2 バイト文字を `_` に置き換えて表示する。
+#   C.UTF-8 はベースイメージに入っているので、追加パッケージは不要である。
+ENV LANG=C.UTF-8
+
 # aptリポジトリの追加と、パッケージのインストール
 #   apt-get update を1回で済ませるため、リポジトリを全部登録してからまとめてインストールする。
 #   ※ 鍵の取得に使う curl / gpg はベースイメージに入っている。
@@ -43,6 +48,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         ca-certificates \
         gnupg \
         tmux \
+        zip \
+        unzip \
         git \
         gh \
     && apt-get clean \
@@ -90,3 +97,75 @@ ENV PATH="/home/vscode/.local/bin:${PATH}"
 # * ボリュームをマウントしたとき vscode ユーザーの持ち物になるよう先に作成する。
 RUN mkdir -p /home/vscode/.config/gh \
     && chown -R vscode:vscode /home/vscode/.config
+
+# 以降の Java / Android SDK / Gradle は、vscode ユーザーで導入する。
+#   導入先がすべて vscode ユーザーのホーム配下なので、sudo が無くても後から更新できる。
+#   ※ 最後に USER root へ戻し、ベースイメージの既定 (root) を変えないようにする。
+USER vscode
+
+# Java (SDKMAN で導入・バージョン管理)
+# * SDKMAN : https://sdkman.io/
+# * Android SDK の Linux 版 (adb、aapt2 など) は x86_64 のみ提供されているため、amd64 だけを対象にする。
+#   Temurin (-tem) の識別子は固定する。バージョンを変えるときは、`sdk list java` で識別子を確認して書き換える。
+# * SDKMAN のインストーラは curl | bash で、バージョンの固定とチェックサムの検証ができない。
+#   JDK 本体の取得と検証は SDKMAN に任せる。
+# * sdk コマンドは対話シェルでだけ有効になる。非対話シェル (Claude Code など) でも java を使えるよう、
+#   current のシンボリックリンクを JAVA_HOME と PATH に通す。
+# * ci=true で入れると、設定が非対話向け (確認なしで既定の JDK を切り替える等) になる。
+#   JDK の導入後に、対話向けの値 (SDKMAN の通常インストールの既定値) へ戻す。
+ENV SDKMAN_DIR="/home/vscode/.sdkman"
+RUN case "$(dpkg --print-architecture)" in \
+        amd64) JAVA_VERSION="25.0.3.0+9-tem" ;; \
+        *) echo "ERROR: Android SDK の Linux 版は x86_64 のみ提供されているため、amd64 以外には対応していません。" >&2 && exit 1 ;; \
+    esac \
+    && curl -fsSL "https://get.sdkman.io?ci=true&rcupdate=false" | bash \
+    && source "${SDKMAN_DIR}/bin/sdkman-init.sh" \
+    && sdk install java "${JAVA_VERSION}" \
+    && sed -i \
+        -e 's/^sdkman_auto_answer=.*/sdkman_auto_answer=false/' \
+        -e 's/^sdkman_selfupdate_feature=.*/sdkman_selfupdate_feature=true/' \
+        -e 's/^sdkman_colour_enable=.*/sdkman_colour_enable=true/' \
+        "${SDKMAN_DIR}/etc/config" \
+    && grep -qx 'sdkman_auto_answer=false' "${SDKMAN_DIR}/etc/config" \
+    && grep -qx 'sdkman_selfupdate_feature=true' "${SDKMAN_DIR}/etc/config" \
+    && grep -qx 'sdkman_colour_enable=true' "${SDKMAN_DIR}/etc/config" \
+    && rm -rf "${SDKMAN_DIR}/archives"/* "${SDKMAN_DIR}/tmp"/* \
+    && "${SDKMAN_DIR}/candidates/java/current/bin/java" -version
+ENV JAVA_HOME="${SDKMAN_DIR}/candidates/java/current"
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# SDKMAN のシェル連携 (sdk コマンド・タブ補完) を vscode ユーザーの bash / zsh に設定する。
+RUN echo 'source "$HOME/.sdkman/bin/sdkman-init.sh"' >> /home/vscode/.bashrc \
+    && echo 'source "$HOME/.sdkman/bin/sdkman-init.sh"' >> /home/vscode/.zshrc
+
+# Android SDK (command-line tools、platform-tools、platform、build-tools)
+# * Android Studio : https://developer.android.com/studio#command-line-tools-only
+# * command-line tools は公式ページのチェックサムで検証する。バージョンを変えるときは、この 2 つの ARG を揃えて更新する。
+# * platform は AGP 9.4 が対応する API 37、build-tools は AGP 9.4 の既定 (36.0.0) に合わせている。
+#   プロジェクトの compileSdk に合わせて、必要なら ARG を書き換える。
+# * ライセンスへの同意は、ビルド時に一括で行う。
+# * SDK は vscode ユーザーの持ち物にして、sdkmanager で後から追加できるようにする。
+ARG ANDROID_CMDLINE_TOOLS_VERSION=15859902
+ARG ANDROID_CMDLINE_TOOLS_SHA256=4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583
+ARG ANDROID_PLATFORM=android-37.0
+ARG ANDROID_BUILD_TOOLS=36.0.0
+ENV ANDROID_HOME="/home/vscode/android-sdk"
+RUN ZIP_FILE="commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip" \
+    && curl -fsSL -o "/tmp/${ZIP_FILE}" "https://dl.google.com/android/repository/${ZIP_FILE}" \
+    && echo "${ANDROID_CMDLINE_TOOLS_SHA256}  /tmp/${ZIP_FILE}" | sha256sum -c - \
+    && mkdir -p "${ANDROID_HOME}/cmdline-tools" /tmp/cmdline-tools-unzip \
+    && unzip -q "/tmp/${ZIP_FILE}" -d /tmp/cmdline-tools-unzip \
+    && mv /tmp/cmdline-tools-unzip/cmdline-tools "${ANDROID_HOME}/cmdline-tools/latest" \
+    && rm -rf "/tmp/${ZIP_FILE}" /tmp/cmdline-tools-unzip \
+    && "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses < <(yes) > /dev/null \
+    && "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" \
+        "platform-tools" \
+        "platforms;${ANDROID_PLATFORM}" \
+        "build-tools;${ANDROID_BUILD_TOOLS}"
+ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}"
+
+# Gradle のキャッシュの保存先
+# * ~/.gradle : 依存関係やラッパーのキャッシュ。ボリュームをマウントしたとき vscode ユーザーの持ち物になるよう先に作成する。
+RUN mkdir -p /home/vscode/.gradle
+
+USER root

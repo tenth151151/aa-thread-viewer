@@ -1,2 +1,4 @@
+# git の core.autocrlf の設定に関係なく、テキストファイルをリポジトリに LF で入れる。
+* text=auto
 # シェルスクリプトはコンテナ内の bash で実行するので、OSに関係なく LF に固定する
 *.sh text eol=lf
