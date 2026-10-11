@@ -1,6 +1,7 @@
 {
     "name": "aa-thread-viewer",
     "build": {
+        "context": "..",
         "dockerfile": "./Dockerfile"
     },
     "runArgs": [

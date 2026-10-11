@@ -1,0 +1,6 @@
+# devcontainer のビルドは、リポジトリのルートを context にする。
+# すべて除外してから、Dockerfile が COPY するファイルだけを許可する。
+# 手元の秘密や設定を context に含めないためである。
+# Dockerfile で COPY するファイルを増やしたら、ここにも許可を足す。
+*
+!versions.properties

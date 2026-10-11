@@ -26,20 +26,41 @@ jobs:
           # 認証トークンを .git/config に残さない。
           persist-credentials: false
 
+      # versions.properties が、JDK と Android SDK のバージョンの唯一の正である。
+      # KEY=VALUE の行だけを環境変数にし、後のステップから env コンテキストで参照する。
+      - name: Load versions
+        run: grep -E '^[A-Z0-9_]+=' versions.properties >> "$GITHUB_ENV"
+
       - name: Set up JDK
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
-          java-version: 25.0.3
+          java-version: ${{ env.JDK_VERSION }}
 
-      - name: Install Android SDK packages
+      # devcontainer と同じバージョンの command-line tools を、チェックサムを確かめてから使う。
+      # * ランナーに入っている cmdline-tools/latest は、イメージの更新で変わるので使わない。
+      # * SDK のルートは $RUNNER_TEMP 配下に新しく作る。ランナーの既存の SDK (/usr/local/lib/android/sdk) と
+      #   混ざらず、そこに入っているバージョンの影響も受けない。
+      # * ANDROID_HOME と ANDROID_SDK_ROOT の両方をこのルートに上書きし、以降のステップ (Gradle) が同じ SDK を使うようにする。
+      #   ランナーは両方をもとの SDK に向けており、片方だけ上書きして食い違うと AGP がビルドを失敗させる。
+      #   sdkmanager にも同じルートを --sdk_root で明示し、別の場所に入れてしまうことを防ぐ。
+      - name: Install Android SDK
         run: |
-          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          sdk_root="$RUNNER_TEMP/android-sdk"
+          zip_file="commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip"
+          curl -fsSL -o "$RUNNER_TEMP/$zip_file" "https://dl.google.com/android/repository/$zip_file"
+          echo "${ANDROID_CMDLINE_TOOLS_SHA256}  $RUNNER_TEMP/$zip_file" | sha256sum -c -
+          mkdir -p "$sdk_root/cmdline-tools" "$RUNNER_TEMP/cmdline-tools-unzip"
+          unzip -q "$RUNNER_TEMP/$zip_file" -d "$RUNNER_TEMP/cmdline-tools-unzip"
+          mv "$RUNNER_TEMP/cmdline-tools-unzip/cmdline-tools" "$sdk_root/cmdline-tools/latest"
+          sdkmanager="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
           # このステップは shell を省いているので、既定の bash -e では pipefail が付かない。
           # shell: bash を指定すると pipefail が有効になり、yes | で渡すと yes が SIGPIPE で終了してステップが失敗する。
           # プロセス置換なら、シェルの指定に関係なく失敗しない。
-          "$sdkmanager" --licenses < <(yes) > /dev/null
-          "$sdkmanager" "platforms;android-37.0" "build-tools;36.0.0"
+          "$sdkmanager" --sdk_root="$sdk_root" --licenses < <(yes) > /dev/null
+          "$sdkmanager" --sdk_root="$sdk_root" "platforms;${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
 
       # wrapper の jar の検証 (validate-wrappers) は、既定で有効である。
       - name: Set up Gradle

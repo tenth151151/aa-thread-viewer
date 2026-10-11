@@ -106,7 +106,7 @@ USER vscode
 # Java (SDKMAN で導入・バージョン管理)
 # * SDKMAN : https://sdkman.io/
 # * Android SDK の Linux 版 (adb、aapt2 など) は x86_64 のみ提供されているため、amd64 だけを対象にする。
-#   Temurin (-tem) の識別子は固定する。バージョンを変えるときは、`sdk list java` で識別子を確認して書き換える。
+#   バージョンは versions.properties の JDK_SDKMAN_ID (Temurin の識別子) で固定する。変えるときは、`sdk list java` で識別子を確認して書き換える。
 # * SDKMAN のインストーラは curl | bash で、バージョンの固定とチェックサムの検証ができない。
 #   JDK 本体の取得と検証は SDKMAN に任せる。
 # * sdk コマンドは対話シェルでだけ有効になる。非対話シェル (Claude Code など) でも java を使えるよう、
@@ -114,10 +114,17 @@ USER vscode
 # * ci=true で入れると、設定が非対話向け (確認なしで既定の JDK を切り替える等) になる。
 #   JDK の導入後に、対話向けの値 (SDKMAN の通常インストールの既定値) へ戻す。
 ENV SDKMAN_DIR="/home/vscode/.sdkman"
+# versions.properties の読み込み
+#   COPY はキャッシュのキーになるので、JDK の手順の直前に置く。
+#   値は `KEY=` で始まる行から読む。値が空なら、ビルドを止める。
+#   vscode ユーザーが後の手順で消せるよう、vscode ユーザーの持ち物にする。
+COPY --chown=vscode:vscode versions.properties /tmp/versions.properties
 RUN case "$(dpkg --print-architecture)" in \
-        amd64) JAVA_VERSION="25.0.3.0+9-tem" ;; \
+        amd64) ;; \
         *) echo "ERROR: Android SDK の Linux 版は x86_64 のみ提供されているため、amd64 以外には対応していません。" >&2 && exit 1 ;; \
     esac \
+    && JAVA_VERSION="$(grep -E '^JDK_SDKMAN_ID=' /tmp/versions.properties | head -n 1 | cut -d= -f2-)" \
+    && { test -n "${JAVA_VERSION}" || { echo "ERROR: versions.properties の JDK_SDKMAN_ID が空か、見つかりません。" >&2; exit 1; }; } \
     && curl -fsSL "https://get.sdkman.io?ci=true&rcupdate=false" | bash \
     && source "${SDKMAN_DIR}/bin/sdkman-init.sh" \
     && sdk install java "${JAVA_VERSION}" \
@@ -140,17 +147,23 @@ RUN echo 'source "$HOME/.sdkman/bin/sdkman-init.sh"' >> /home/vscode/.bashrc \
 
 # Android SDK (command-line tools、platform-tools、platform、build-tools)
 # * Android Studio : https://developer.android.com/studio#command-line-tools-only
-# * command-line tools は公式ページのチェックサムで検証する。バージョンを変えるときは、この 2 つの ARG を揃えて更新する。
-# * platform は AGP 9.4 が対応する API 37、build-tools は AGP 9.4 の既定 (36.0.0) に合わせている。
-#   プロジェクトの compileSdk に合わせて、必要なら ARG を書き換える。
+# * バージョンとチェックサムは、すべて versions.properties から読む (JDK の手順で COPY 済み)。値が空なら、ビルドを止める。
+#   バージョンを変えるときは、versions.properties を書き換える。
+# * command-line tools は、公式ページのチェックサムで検証する。
 # * ライセンスへの同意は、ビルド時に一括で行う。
 # * SDK は vscode ユーザーの持ち物にして、sdkmanager で後から追加できるようにする。
-ARG ANDROID_CMDLINE_TOOLS_VERSION=15859902
-ARG ANDROID_CMDLINE_TOOLS_SHA256=4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583
-ARG ANDROID_PLATFORM=android-37.0
-ARG ANDROID_BUILD_TOOLS=36.0.0
 ENV ANDROID_HOME="/home/vscode/android-sdk"
-RUN ZIP_FILE="commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip" \
+RUN read_version() { \
+        local value; \
+        value="$(grep -E "^$1=" /tmp/versions.properties | head -n 1 | cut -d= -f2-)"; \
+        test -n "${value}" || { echo "ERROR: versions.properties の $1 が空か、見つかりません。" >&2; return 1; }; \
+        printf '%s' "${value}"; \
+    } \
+    && ANDROID_CMDLINE_TOOLS_VERSION="$(read_version ANDROID_CMDLINE_TOOLS_VERSION)" \
+    && ANDROID_CMDLINE_TOOLS_SHA256="$(read_version ANDROID_CMDLINE_TOOLS_SHA256)" \
+    && ANDROID_PLATFORM="$(read_version ANDROID_PLATFORM)" \
+    && ANDROID_BUILD_TOOLS="$(read_version ANDROID_BUILD_TOOLS)" \
+    && ZIP_FILE="commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip" \
     && curl -fsSL -o "/tmp/${ZIP_FILE}" "https://dl.google.com/android/repository/${ZIP_FILE}" \
     && echo "${ANDROID_CMDLINE_TOOLS_SHA256}  /tmp/${ZIP_FILE}" | sha256sum -c - \
     && mkdir -p "${ANDROID_HOME}/cmdline-tools" /tmp/cmdline-tools-unzip \
@@ -161,7 +174,8 @@ RUN ZIP_FILE="commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip
     && "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" \
         "platform-tools" \
         "platforms;${ANDROID_PLATFORM}" \
-        "build-tools;${ANDROID_BUILD_TOOLS}"
+        "build-tools;${ANDROID_BUILD_TOOLS}" \
+    && rm -f /tmp/versions.properties
 ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}"
 
 # Gradle のキャッシュの保存先
