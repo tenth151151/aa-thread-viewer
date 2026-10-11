@@ -6,6 +6,11 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu
 #   `curl ... | gpg ...` のようなパイプの途中で失敗しても、ビルドが確実に止まるようにする。
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# コンテナ全体のロケールを UTF-8 にする。
+#   未設定 (POSIX) だと tmux が UTF-8 非対応と判断し、2 バイト文字を `_` に置き換えて表示する。
+#   C.UTF-8 はベースイメージに入っているので、追加パッケージは不要である。
+ENV LANG=C.UTF-8
+
 # aptリポジトリの追加と、パッケージのインストール
 #   apt-get update を1回で済ませるため、リポジトリを全部登録してからまとめてインストールする。
 #   ※ 鍵の取得に使う curl / gpg はベースイメージに入っている。
