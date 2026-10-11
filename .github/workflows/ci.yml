@@ -8,7 +8,8 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  # main への push は取り消さず、マージしたコミットごとに結果を残す。
+  # PR の run は、新しい push で取り消す。main への push の run は、実行中のものを取り消さない。
+  # 待っている run は新しい run に置き換えられるが、最新のコミットの結果が残るので問題ない。
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -20,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # 以下の Check out から Install Android SDK までの準備のステップは、dependency-submission.yml と同じ内容にしている。変えるときは両方をそろえる。
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
