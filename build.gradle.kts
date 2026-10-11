@@ -4,15 +4,17 @@ plugins {
     alias(libs.plugins.spotless)
 }
 
+val spotlessTargetExclude = arrayOf("**/build/**", "**/.gradle/**", "**/.kotlin/**")
+
 spotless {
     kotlin {
         target("**/*.kt")
-        targetExclude("**/build/**", "**/.gradle/**", "**/.kotlin/**")
+        targetExclude(*spotlessTargetExclude)
         ktlint(libs.versions.ktlint.get())
     }
     kotlinGradle {
         target("**/*.gradle.kts")
-        targetExclude("**/build/**", "**/.gradle/**", "**/.kotlin/**")
+        targetExclude(*spotlessTargetExclude)
         ktlint(libs.versions.ktlint.get())
     }
 }

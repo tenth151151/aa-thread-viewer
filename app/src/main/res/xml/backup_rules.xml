@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 11 以前の Auto Backup のルール。方針は AndroidManifest.xml のコメントを参照。
+    path="." は領域全体を指す。root は file、database、sharedpref を含み、device_root は device_* を含む。
+-->
+<full-backup-content>
+    <exclude domain="root" path="." />
+    <exclude domain="external" path="." />
+    <exclude domain="device_root" path="." />
+</full-backup-content>

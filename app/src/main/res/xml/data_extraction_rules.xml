@@ -1,29 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    今は保存するデータがないため、クラウドバックアップも端末間転送も対象にしない。データを保存するようになったら、対象を改めて決める。
-    Android 12 以降の端末間転送は allowBackup="false" でも止まらないため、ここで端末保護ストレージの領域も含めて全て除外する。
+    Android 12 以降のクラウドバックアップと端末間転送のルール。方針は AndroidManifest.xml のコメントを参照。
+    path="." は領域全体を指す。root は file、database、sharedpref を含み、device_root は device_* を含む。
+    Android 12 以降の端末間転送は allowBackup="false" でも止まらないため、ここで端末保護ストレージの領域も含めて除外する。
+    cloud-backup は、allowBackup="false" のためクラウドバックアップが無効な今は効かない。あとで allowBackup="true" にしたときの備えとして残す。
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="root" />
-        <exclude domain="file" />
-        <exclude domain="database" />
-        <exclude domain="sharedpref" />
-        <exclude domain="external" />
-        <exclude domain="device_root" />
-        <exclude domain="device_file" />
-        <exclude domain="device_database" />
-        <exclude domain="device_sharedpref" />
+        <exclude domain="root" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="root" />
-        <exclude domain="file" />
-        <exclude domain="database" />
-        <exclude domain="sharedpref" />
-        <exclude domain="external" />
-        <exclude domain="device_root" />
-        <exclude domain="device_file" />
-        <exclude domain="device_database" />
-        <exclude domain="device_sharedpref" />
+        <exclude domain="root" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
     </device-transfer>
 </data-extraction-rules>
