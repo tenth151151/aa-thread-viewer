@@ -2,3 +2,7 @@
 * text=auto
 # シェルスクリプトはコンテナ内の bash で実行するので、OSに関係なく LF に固定する
 *.sh text eol=lf
+# gradlew はコンテナ内の bash で実行するので、ホストの core.autocrlf に関係なく LF に固定する。
+gradlew text eol=lf
+# Windows のバッチファイルは CRLF でないと動かないことがあるので、CRLF に固定する。
+*.bat text eol=crlf
