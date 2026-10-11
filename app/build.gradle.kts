@@ -6,9 +6,10 @@ plugins {
 android {
     namespace = "io.github.tenth151151.aathreadviewer"
     compileSdk {
-        version = release(37) {
-            minorApiLevel = 0
-        }
+        version =
+            release(37) {
+                minorApiLevel = 0
+            }
     }
     buildToolsVersion = "36.0.0"
 
