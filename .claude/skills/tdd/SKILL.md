@@ -88,6 +88,7 @@ worker は、次のことを報告します。
 - 既存の本体を変えた場合の赤: 実行したコマンドと、期待値の不一致で失敗した抜粋。
 - 緑: 実行したコマンドと、`BUILD SUCCESSFUL` および XML の `tests` と `failures` の値。
 - リファクタリングをしたときは、その内容と実行結果。
+- コミットの前: `./gradlew check assembleDebug` の実行結果（`BUILD SUCCESSFUL` か、失敗の抜粋）。
 - 実行できなかった確認があるときは、そう明記します。
 
 ## reviewer の確認手順
@@ -104,6 +105,18 @@ reviewer は読み取り専用で、実物のファイルを変えません。
    - 期待値が、振る舞いを区別できる値になっているか。
    - 扱わないと決めたことまでテストしていないか。
    - テストが弱められたり、スキップされたりしていないか。
+
+## コミットの前に
+
+作業の最後（コミットや PR の前）に、CI と同じ確認として次を実行します。
+
+```bash
+./gradlew check assembleDebug
+```
+
+- `check` には、単体テスト、Android Lint（警告もエラー）、`spotlessCheck` が含まれます。
+- format の崩れで失敗したときは、`./gradlew spotlessApply` で直し、もう一度実行します。
+- 緑とリファクタリングの途中は、これまでどおり `./gradlew :app:testDebugUnitTest --rerun` で確認します。
 
 ## コミットの単位
 
