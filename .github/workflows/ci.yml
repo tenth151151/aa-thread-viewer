@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # 以下の Check out から Install Android SDK までの準備のステップは、dependency-submission.yml と同じ内容にしている。変えるときは両方をそろえる。
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

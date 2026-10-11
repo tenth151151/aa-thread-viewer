@@ -26,3 +26,13 @@ PR の分け方は次のとおりです。
 - その他の major の更新は、1 件ずつ単独の PR になります。
 
 Kotlin のバージョンは、AGP が要求する KGP 以上にそろえます。詳しくは `gradle/libs.versions.toml` のコメントを参照してください。
+
+### 脆弱性の更新（セキュリティ更新）
+
+脆弱性の検出と更新には、Dependabot alerts と Dependabot security updates を使います。Gradle は、リポジトリのファイルを読むだけでは推移的な依存関係まで分からないため、`.github/workflows/dependency-submission.yml` が依存関係のグラフを GitHub に送ります。このワークフローは、`main` への push と手動実行（`workflow_dispatch`）で動きます。定期実行はしません。
+
+Dependabot alerts と Dependabot security updates を使うには、リポジトリの設定で両方を有効にします。Dependabot alerts を有効にすると、Dependency graph も生成されます。
+
+- セキュリティ更新の PR は、`dependabot.yml` のグループに入らず、1 件ずつ単独の PR になります。ただし、リポジトリの設定の Grouped security updates を有効にしないことが前提です。有効にすると、`dependabot.yml` にグループがなくても、エコシステムごとにまとめた PR になるためです。
+- alerts は、推移的な依存関係を含むグラフ全体に出ます。PR が作られるのは、`gradle/libs.versions.toml` のように、ファイルに書いてある依存関係で、修正版に上げられるときだけです。推移的な依存関係は、alert だけで PR が来ないことがあります。
+- GitHub Actions は SHA で固定しているため、alerts の対象になりません。Actions の更新は、バージョン更新の PR で行います。

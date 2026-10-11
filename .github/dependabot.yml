@@ -1,6 +1,9 @@
 # Dependabot のバージョン更新の設定。
 # 設定項目の仕様: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
-# 脆弱性の更新 (セキュリティ更新) はここでは扱わない。別の Issue で設定する。
+# 脆弱性の更新 (セキュリティ更新) の PR は、下の groups の対象にならず、単独の PR になる。
+# groups は applies-to を省くと version-updates の扱いになるため、セキュリティ更新には効かない。
+# 単独の PR になるのは、リポジトリの設定の Grouped security updates を有効にしない場合だけである。有効にすると、groups がなくても、エコシステムごとにまとめた PR になる。
+# Gradle の依存関係のグラフは、.github/workflows/dependency-submission.yml で GitHub に送る。
 # Dockerfile の ARG と versions.properties は Dependabot の対象外なので、手作業で更新する。
 version: 2
 updates:
