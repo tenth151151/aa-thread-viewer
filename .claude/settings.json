@@ -4,6 +4,7 @@
     "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/bin/statusline.sh\""
   },
   "agent": "supervisor",
+  "advisorModel": "opus",
   "permissions": {
     "deny": [
       "Bash(git push)",
