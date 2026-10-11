@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 今は保存するデータがないため無効にしている。データを保存するようになったら、バックアップの対象を改めて決める。 -->
+    <!--
+        今は保存するデータがないため無効にしている。データを保存するようになったら、バックアップの対象を改めて決める。
+        allowBackup="false" のとき、Android 11 以前では fullBackupContent が使われず、バックアップされない。
+        そのため fullBackupContent は定義せず、それを求める DataExtractionRules の警告だけを無効にする。
+    -->
     <application
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AAThreadViewer">
+        android:theme="@style/Theme.AAThreadViewer"
+        tools:ignore="DataExtractionRules">
         <activity
             android:name=".MainActivity"
             android:exported="true">
