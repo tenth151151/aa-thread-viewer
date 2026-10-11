@@ -73,15 +73,20 @@ remove_sudo() {
 trap remove_sudo EXIT
 
 # -------------------------------------------------------------
-# 認証情報を保存するボリュームの所有者を自分にする
+# 名前付きボリュームの所有者を自分にする
 #   名前付きボリュームは root 所有で作られることがあり、
-#   そのままだと Claude Code や gh がログイン情報を書き込めない。
+#   そのままだと Claude Code や gh がログイン情報を、Gradle がキャッシュを書き込めない。
 #   ※ Claude Code が ~/.claude を使う前に済ませるため、インストールより先に実行する。
 # -------------------------------------------------------------
-for dir in "${CLAUDE_CONFIG_DIR:-}" "$HOME/.config/gh"; do
+for dir in "${CLAUDE_CONFIG_DIR:-}" "$HOME/.config/gh" "$HOME/.gradle"; do
   [[ -n "$dir" ]] || continue
-  log "$dir の所有者を $(whoami) に変更します。"
   sudo mkdir -p "$dir"
+  # Gradle のボリュームは大きく育つので、所有者が既に自分なら再帰的な chown を飛ばす。
+  if [[ "$(stat -c %u:%g "$dir")" == "$(id -u):$(id -g)" ]]; then
+    log "$dir の所有者は既に $(whoami) です。変更を飛ばします。"
+    continue
+  fi
+  log "$dir の所有者を $(whoami) に変更します。"
   sudo chown -R "$(id -u):$(id -g)" "$dir"
 done
 
