@@ -6,3 +6,7 @@
 - まとめ方は毎回ユーザーに確認する。勝手にまとめない。
 - まとめる前のバックアップはタグ `backup/<ブランチ名>/<日時>` で残し、push しない。
 - push 済みのコミットは、ユーザーの明示的な許可なしに書き換えない。
+
+## PR の作成
+
+- push や PR 作成の前に、`/pre-pr-check` スキル (`.claude/skills/pre-pr-check/SKILL.md`) で差分を確認する。`/squash-commits` より前に行う。

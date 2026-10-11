@@ -1,6 +1,6 @@
 ---
 name: squash-commits
-description: ブランチ内の作業コミットを、意味のある単位にまとめ直す（スカッシュする）手順。ユーザーが「コミットをまとめて」「スカッシュして」「履歴を整理して」と言ったとき、またはブランチを push / PR 作成する前に使う。
+description: ブランチ内の作業コミットを、意味のある単位にまとめ直す（スカッシュする）手順。ユーザーが「コミットをまとめて」「スカッシュして」「履歴を整理して」と言ったとき、またはブランチを push / PR 作成する前に使う。その場合は `/pre-pr-check` のあとに行う。
 ---
 
 # ブランチのコミットをまとめる
@@ -8,14 +8,16 @@ description: ブランチ内の作業コミットを、意味のある単位に�
 ブランチ内の細かい作業コミットを、レビューしやすい「意味のある単位」に組み直す。
 **最終的なファイルの中身は1バイトも変えない**。変えるのは履歴の区切り方だけ。
 
+`/pre-pr-check` で差分を確認してからまとめる。指摘を直したコミットも、いっしょにまとめられるため。
+
 ## 1. 状態を確認する
 
 ```bash
-git status --short                      # 未コミットの変更が無いこと
+git status --short                      # 未コミットの変更が無いこと。
 git branch --show-current
-git log --oneline main..HEAD            # まとめる対象
-git rev-parse --abbrev-ref @{upstream}  # upstream があるか (無ければエラーになる)
-git log --oneline @{upstream}..HEAD     # upstream がある場合: まだ push していないコミット
+git log --oneline main..HEAD            # まとめる対象。
+git rev-parse --abbrev-ref @{upstream}  # upstream があるか (無ければエラーになる)。
+git log --oneline @{upstream}..HEAD     # upstream がある場合: まだ push していないコミット。
 ```
 
 - **未コミットの変更がある**: まとめに勝手に含めない。そのまま残すか、先にコミットするかをユーザーに聞く。
@@ -51,7 +53,7 @@ git tag "backup/$(git branch --show-current)/$(date +%Y%m%d-%H%M%S)"
 ```bash
 ORIG=$(git rev-parse HEAD)
 git reset --soft "$(git merge-base HEAD main)"
-git reset                     # 全部 unstage する (作業ツリーはそのまま)
+git reset                     # 全部 unstage する (作業ツリーはそのまま)。
 ```
 
 各コミットについて、そのコミットに入れるファイルを、**最終版 (`$ORIG`) の中身で** index に入れてコミットする。
@@ -69,7 +71,7 @@ EOF
 - **削除・リネームも忘れずにコミットに入れる**。`git reset` 直後の index は分岐点の状態なので、最終版で消えたファイルは放っておくと index に残り続ける。先に、ブランチ全体で何が起きたかを一覧する。
 
   ```bash
-  git diff --name-status -M "$(git merge-base HEAD main)" "$ORIG"   # A:追加 M:変更 D:削除 R:リネーム T:モード変更
+  git diff --name-status -M "$(git merge-base HEAD main)" "$ORIG"   # A:追加 M:変更 D:削除 R:リネーム T:モード変更。
   ```
 
   - 削除 (`D`): 該当のコミットで `git update-index --force-remove -- <path>`（または `git rm --cached -- <path>`）を実行する。
@@ -82,9 +84,9 @@ EOF
 ## 5. 中身が変わっていないことを確認する
 
 ```bash
-git diff --stat "$ORIG" HEAD        # 何も出なければ OK
+git diff --stat "$ORIG" HEAD        # 何も出なければ OK。
 git log --reverse --stat --format='%h %s' main..HEAD
-git status --short                  # 元々あった未コミットの変更だけが残っていること
+git status --short                  # 元々あった未コミットの変更だけが残っていること。
 ```
 
 `git diff` に差分が出たら、組み直しを失敗とみなして `git reset --hard "$ORIG"`（またはバックアップのタグ）で元に戻し、原因を調べてからやり直す。

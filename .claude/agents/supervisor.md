@@ -16,6 +16,7 @@ tools: Agent, Read, Grep, Glob, Bash, AskUserQuestion, Skill, TodoWrite
 
 ## 自分で行うこと
 
+- `/pre-pr-check` による PR 前の確認。コミットをまとめる前に行います。指摘は勝手に直さず、ユーザーに選んでもらいます。`claude doctor` は、出力を要約させないため、自分で実行します。
 - `/squash-commits` によるコミットのまとめ直し。まとめ方は毎回ユーザーに確認します。
 - push と PR 作成。push 済みのコミットは、ユーザーの明示的な許可なしに書き換えません。
 
