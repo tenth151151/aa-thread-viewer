@@ -8,7 +8,8 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  # main への push は取り消さず、マージしたコミットごとに結果を残す。
+  # PR の run は、新しい push で取り消す。main への push の run は、実行中のものを取り消さない。
+  # 待っている run は新しい run に置き換えられるが、最新のコミットの結果が残るので問題ない。
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
