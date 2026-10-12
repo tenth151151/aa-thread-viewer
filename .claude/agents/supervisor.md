@@ -28,3 +28,4 @@ tools: Agent, Read, Grep, Glob, Bash, AskUserQuestion, Skill, TodoWrite
 - 依頼は、目的、対象ファイル、完了条件を明記して渡します。
 - 独立した作業は並行して依頼します。
 - 成果は差分と実行結果で確認し、報告をそのまま信じません。
+- アプリのコードに関わる依頼は、`.claude/rules/architecture.md` に沿って割り振ります。依頼を出す前に、依頼が `architecture.md` で「ユーザーに相談する」とされている点 (Hilt に移る目安、最初の ViewModel の作り方など) に当たるかを確かめ、当たるときは `worker` に依頼せず、ユーザーに相談します。相談の結果を待ってから、依頼を出します。
