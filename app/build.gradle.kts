@@ -1,9 +1,11 @@
+import kotlinx.kover.gradle.plugin.dsl.CoverageUnit
 import java.io.StringReader
 import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kover)
 }
 
 // JDK と Android SDK のバージョンは、リポジトリのルートの versions.properties が唯一の正である。
@@ -86,6 +88,30 @@ kotlin {
         // 使っていない変数、いらない可視性の修飾子などの追加の検査も有効にする。
         // Kotlin の新しい版で検査が増えることがあり、コードを変えていなくても、Kotlin を上げる PR で CI が落ちることがある。これも意図した動きである。
         extraWarnings = true
+    }
+}
+
+// カバレッジの測定 (Kover)。測るのは JVM の単体テストだけで、計装テスト (androidTest) は使わない。
+// そのため、画面 (Composable) と Activity は測れない。測る対象から外し、ViewModel や Repository などのロジックを残す。
+kover {
+    reports {
+        filters {
+            excludes {
+                annotatedBy("androidx.compose.runtime.Composable")
+                // Activity と Application は、計装テストを使わないので測れない。
+                // Kover はライブラリのクラスの継承をたどれないので、ほかのライブラリのクラス (例: AppCompatActivity) を親にするときは、そのクラスもここに足す。
+                inheritedFrom("android.app.Activity", "androidx.activity.ComponentActivity", "android.app.Application")
+                // Compose コンパイラが、ラムダなどを置くために作るクラス。
+                classes("*ComposableSingletons*")
+            }
+        }
+
+        verify {
+            rule("行のカバレッジ") {
+                // TDD ならほとんどの行がテストを通るが、少し下がっても失敗しないよう、余裕を持たせて 80% にする。
+                minBound(80, CoverageUnit.LINE)
+            }
+        }
     }
 }
 

@@ -5,13 +5,15 @@
 開発環境は devcontainer です。JDK と Android SDK のバージョンは、リポジトリのルートの `versions.properties` にまとめています。devcontainer、CI、Gradle がこのファイルを読むので、バージョンを変えるときは、このファイルだけを書き換えます。JDK は `JDK_VERSION` と `JDK_SDKMAN_ID` の両方を直します。`targetSdk` と `minSdk` は、アプリの挙動に関わる設定なので、`app/build.gradle.kts` に書いています。
 
 ```bash
-# CI と同じ確認をする (全角の丸括弧の検査、単体テスト、Android Lint、format のチェック、デバッグビルド)。
+# CI と同じ確認をする (全角の丸括弧の検査、単体テスト、Android Lint、format のチェック、カバレッジの基準値の検査、デバッグビルド、カバレッジのレポートの作成)。
 bash bin/check-fullwidth-parens.sh
-./gradlew check assembleDebug
+./gradlew check assembleDebug koverLog koverXmlReport koverHtmlReport --continue
 
 # format の崩れを自動で直す。
 ./gradlew spotlessApply
 ```
+
+カバレッジは Kover で測ります。数字とレポートは、debug と release を合わせた全体のものです。「CI と同じ確認」のコマンドは、行のカバレッジを標準出力に出し、レポートを `app/build/reports/kover/` に作ります。HTML は `html/index.html`、XML は `report.xml` です。JVM の単体テストだけで測るので、`@Composable` の関数 (`@Preview` の関数を含みます) と、Activity と Application のクラスは、測る対象から外しています。行のカバレッジが 80% を下回ると、`check` が失敗します。基準値と除外は `app/build.gradle.kts` の `kover` に書いています。CI は、行のカバレッジをジョブのサマリーに書き、レポートをアーティファクト `coverage` に上げます。
 
 ### git worktree
 

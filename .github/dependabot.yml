@@ -58,6 +58,7 @@ updates:
       # junit、spotless など、上の 3 つ以外をまとめる。
       # major の更新は破壊的変更を含みうるので、このグループに入れず、単独の PR にする。
       # AGP と Gradle Wrapper は、影響が大きいので、除外して単独の PR にする。
+      # Kover (org.jetbrains.kotlinx.kover) も除外して単独の PR にする。0.x の版なので、DSL が変わる更新も minor 扱いになり、まとめた PR に入ると切り分けにくい。
       # Gradle Wrapper の依存関係の名前は gradle-wrapper である。
       # 名前は dependabot-core の gradle/lib/dependabot/gradle/file_parser/distributions_finder.rb にある。
       # com.android.tools.build:gradle は、plugins ブロックで AGP を使うため、このリポジトリでは使わない名前である。
@@ -69,6 +70,7 @@ updates:
           - "com.android.application"
           - "com.android.tools.build:gradle"
           - "gradle-wrapper"
+          - "org.jetbrains.kotlinx.kover"
         update-types:
           - minor
           - patch

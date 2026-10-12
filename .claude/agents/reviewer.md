@@ -14,6 +14,7 @@ tools: Read, Grep, Glob, Bash
 - 日本語の文体が `.claude/rules/writing-style.md` に沿っているか。
 - `.claude/rules/architecture.md` に沿っているか。変更が Hilt に移る目安に当たるときは、そのことを報告します。
 - 警告を抑える書き方 (`@Suppress(...)`、`@file:Suppress(...)`、`freeCompilerArgs`、`@SuppressLint`、`tools:ignore`、`lint.xml`、baseline、コードの警告を消すための lint の `disable` への追加など) や、警告をエラーにする設定を緩める変更が入っていないか。入っているときは報告します (`.claude/rules/tdd.md` を参照)。
+- カバレッジの基準値を下げる変更や、測る対象からの除外を足す変更が入っていないか。入っているときは報告します。`app/build.gradle.kts` に既にある除外と、Activity や Application の親のクラスの `inheritedFrom` への追加は、報告の対象外です。ただし、足したクラスが本当に Activity か Application の親かを確かめます (`.claude/rules/tdd.md` を参照)。
 - 可能な範囲で実際に実行して確かめます。実行できなかった確認は、そう明記します。
 
 ## 報告
