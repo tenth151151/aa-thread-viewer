@@ -10,6 +10,7 @@ coreKtx = "1.19.1"
 junit = "4.13.2"
 spotless = "8.10.4"
 ktlint = "1.8.0"
+kover = "0.9.11"
 # ビルド時の依存関係 (AGP のビルド用クラスパスと lint) の脆弱性対応用。下の [libraries] のコメントを参照。
 bouncycastle = "1.86"
 jose4j = "0.9.7"
@@ -44,3 +45,4 @@ httpclient = { group = "org.apache.httpcomponents", name = "httpclient", version
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

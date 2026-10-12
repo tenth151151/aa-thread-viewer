@@ -72,9 +72,18 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
+      # Gradle は 1 回だけ動かす。check の koverVerify は基準値を検査するだけで、レポートは作らない。
+      # レポートのタスクを同じ呼び出しに入れ、--continue を付けて、koverVerify や lint が失敗してもレポートを作る。
+      # テストやコンパイルが失敗したときは、レポートが作られないだけである。
+      # koverLog の出力 (application line coverage: <割合>%) は、後のサマリーで使うので、tee でログに残す。
+      # このステップは shell を省いているので pipefail が付かない。tee を挟んでも Gradle の失敗が伝わるよう、自分で有効にする。
       - name: Run check and assembleDebug
-        run: ./gradlew check assembleDebug
+        run: |
+          set -o pipefail
+          ./gradlew check assembleDebug koverLog koverXmlReport koverHtmlReport --continue 2>&1 | tee "$RUNNER_TEMP/gradle.log"
 
+      # check が失敗したとき (lint やテストの失敗など) のレポートを上げる。
+      # Kover のレポートは、次の Upload coverage reports で上げるので除く。
       - name: Upload reports
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -82,5 +91,32 @@ jobs:
           name: reports
           path: |
             app/build/reports/**
+            !app/build/reports/kover/**
             app/build/test-results/**
+          retention-days: 7
+
+      # 以降の 2 つのステップは、Kover のレポート (XML) があるときだけ動かす。
+      # koverVerify だけが失敗したときはレポートがあるので、動く。テストやコンパイルが失敗したときは、レポートがないので動かない。
+      # 取り消されたときも動かさない。
+      - name: Write coverage summary
+        if: ${{ !cancelled() && hashFiles('app/build/reports/kover/report.xml') != '' }}
+        run: |
+          line=$(grep -E '^application line coverage: ' "$RUNNER_TEMP/gradle.log" 2>/dev/null | tail -n 1 || true)
+          {
+            echo "## カバレッジ"
+            echo
+            if [ -n "$line" ]; then
+              echo "Kover の出力: \`$line\`"
+            else
+              echo "行のカバレッジの値を取れませんでした。"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage reports
+        if: ${{ !cancelled() && hashFiles('app/build/reports/kover/report.xml') != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: |
+            app/build/reports/kover/**
           retention-days: 7
