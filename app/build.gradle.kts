@@ -71,7 +71,7 @@ android {
 
         // 依存や AGP のバージョンが古いことの検査は、Google Maven への問い合わせなど外部の状況で結果が変わり、
         // コードを変えていなくても CI が日によって失敗する原因になる。
-        // バージョンの更新は #9 で Dependabot を導入して扱うため、無効にする。
+        // バージョンの更新は Dependabot (`.github/dependabot.yml`) で扱うため、無効にする。
         disable += listOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
     }
 }
