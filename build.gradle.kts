@@ -24,7 +24,8 @@ plugins {
     alias(libs.plugins.spotless)
 }
 
-val spotlessTargetExclude = arrayOf("**/build/**", "**/.gradle/**", "**/.kotlin/**")
+// .claude/worktrees/ には git worktree が入る。作業中の .kt をメインの spotless が拾って check が落ちるのを防ぐため除外する。
+val spotlessTargetExclude = arrayOf("**/build/**", "**/.gradle/**", "**/.kotlin/**", "**/.claude/worktrees/**")
 
 spotless {
     kotlin {
