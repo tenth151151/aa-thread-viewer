@@ -83,3 +83,19 @@ dependencies {
 
     testImplementation(libs.junit)
 }
+
+// lint の実行用クラスパス (androidLintTool) に入る推移的な依存関係のうち、脆弱性の修正版がまだ取り込まれていないものを引き上げる。
+// 考え方は root の build.gradle.kts の buildscript と同じで、strictly や force は使わない。
+// 今の androidLintTool に出てこないもの (jose4j、jdom2) も、AGP を上げて入ってきたときに備えて書いておく。グラフにないものへの constraint は何もしない。
+// AGP を上げたときは、./gradlew :app:dependencies --configuration androidLintTool で、ここにない依存関係が入っていないか、要らなくなったものがないかを確かめ直す。
+dependencies {
+    constraints {
+        add("androidLintTool", libs.bouncycastle.bcprov)
+        add("androidLintTool", libs.bouncycastle.bcpkix)
+        add("androidLintTool", libs.bouncycastle.bcutil)
+        add("androidLintTool", libs.jose4j)
+        add("androidLintTool", libs.jdom2)
+        add("androidLintTool", libs.commons.lang3)
+        add("androidLintTool", libs.httpclient)
+    }
+}

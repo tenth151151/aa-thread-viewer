@@ -10,6 +10,12 @@ coreKtx = "1.19.1"
 junit = "4.13.2"
 spotless = "8.10.4"
 ktlint = "1.8.0"
+# ビルド時の依存関係 (AGP のビルド用クラスパスと lint) の脆弱性対応用。下の [libraries] のコメントを参照。
+bouncycastle = "1.86"
+jose4j = "0.9.7"
+jdom2 = "2.0.6.1"
+commonsLang3 = "3.21.0"
+httpclient = "4.5.14"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -20,6 +26,19 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+
+# ビルド用の constraints 専用。アプリの依存関係としては使わない。
+# AGP と lint の推移的な依存関係を、脆弱性の修正版以上に引き上げるために、root と app の build.gradle.kts の constraints が参照する。
+# Dependabot がこのファイルの [libraries] を読むので、更新の PR で版が追える。
+# 更新の PR は、dependabot.yml の build-constraints グループ (minor と patch) にまとまる。
+# bouncycastle の 3 つは同じ版にそろえる。
+bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
+bouncycastle-bcpkix = { group = "org.bouncycastle", name = "bcpkix-jdk18on", version.ref = "bouncycastle" }
+bouncycastle-bcutil = { group = "org.bouncycastle", name = "bcutil-jdk18on", version.ref = "bouncycastle" }
+jose4j = { group = "org.bitbucket.b_c", name = "jose4j", version.ref = "jose4j" }
+jdom2 = { group = "org.jdom", name = "jdom2", version.ref = "jdom2" }
+commons-lang3 = { group = "org.apache.commons", name = "commons-lang3", version.ref = "commonsLang3" }
+httpclient = { group = "org.apache.httpcomponents", name = "httpclient", version.ref = "httpclient" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
