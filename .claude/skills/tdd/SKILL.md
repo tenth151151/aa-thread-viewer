@@ -58,6 +58,14 @@ grep -o 'tests="[0-9]*" skipped="[0-9]*" failures="[0-9]*" errors="[0-9]*"' app/
    1. コンパイルが通る最小限の本体を作り、わざと誤った値を返すようにします。
    2. `./gradlew :app:testDebugUnitTest --rerun --tests '<テスト>'` を実行し、期待値と実際の値の不一致 (`AssertionError` や `ComparisonFailure`) で失敗することを確認します。
 
+### 警告によるコンパイルエラー
+
+Kotlin のコンパイラの警告は、`check` だけでなく、テストの実行 (`:app:testDebugUnitTest`) とコンパイル (`:app:compileDebugUnitTestKotlin`) でもエラーになります。赤で確かめる失敗は、未定義の型や関数のコンパイルエラー (1 段階目) か、期待値の不一致 (2 段階目) です。`warnings found and -Werror specified` による失敗は、意図した失敗ではありません。アサーションの前にコンパイルが止まるためです。
+
+- 警告の原因 (使っていない変数など) を、テストや最小限の本体から取り除きます。そのあとで、赤の確認をやり直します。
+- 設定 (`allWarningsAsErrors` と `extraWarnings`) は緩めません。`@Suppress(...)`、`@file:Suppress(...)`、`freeCompilerArgs` などで警告を消すことも、設定を緩めるのと同じに扱い、行いません。
+- 原因を取り除けないときや、警告を抑える必要があると思ったときは、作業を止めて、ユーザーに相談します。worker は supervisor に伝え、supervisor がユーザーに相談します。
+
 ### 既存の本体を変える場合
 
 バグ修正や、既存の関数への振る舞いの追加などが当たります。コンパイルエラーにならないので、1 段階目は行いません。テストを書いて `./gradlew :app:testDebugUnitTest --rerun --tests '<テスト>'` を実行し、期待値の不一致で失敗することを確認します。
@@ -116,7 +124,7 @@ bash bin/check-fullwidth-parens.sh
 ```
 
 - `bin/check-fullwidth-parens.sh` は、全角の丸括弧 (U+FF08、U+FF09) が残っていないかを調べます。見つかったときは、`.claude/rules/writing-style.md` に従って半角に直します。
-- `check` には、単体テスト、Android Lint (警告もエラー)、`spotlessCheck` が含まれます。
+- `check` には、単体テスト、Android Lint (警告もエラー)、`spotlessCheck` が含まれます。Kotlin のコンパイラの警告も、エラーになります (`allWarningsAsErrors` と `extraWarnings`。使っていない変数なども含みます)。この設定は、テストの実行とコンパイルでも効きます (「警告によるコンパイルエラー」の節を参照)。警告で失敗したときの扱いは、「警告によるコンパイルエラー」の節のとおりです。
 - format の崩れで失敗したときは、`./gradlew spotlessApply` で直し、もう一度実行します。
 - 緑とリファクタリングの途中は、これまでどおり `./gradlew :app:testDebugUnitTest --rerun` で確認します。
 

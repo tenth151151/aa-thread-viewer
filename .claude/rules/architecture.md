@@ -97,6 +97,11 @@ UI 層とデータ層の 2 層で作ります。
 注意は次のとおりです。
 
 - KSP 用のクラスパス (`ksp` で始まる `…ProcessorClasspath` など) には、#24 で入れた constraints (root の `buildscript` と `androidLintTool`) が効きません。移ったあとに Dependabot alerts が出たら、constraints を足す必要があるかを確かめます。
+- #27 で、警告を厳しく扱う設定を入れています。移った直後に、Hilt や KSP が生成したコードの警告でビルドが落ちることがあります。
+  - 設定の内容: `app/build.gradle.kts` で、Kotlin のコンパイラの `allWarningsAsErrors` と `extraWarnings`、lint の `checkGeneratedSources` と `checkTestSources` を有効にしています。Java のコンパイラの警告は、エラーにしていません (`JavaCompile` の `-Werror` がありません)。
+  - 生成コードで効くもの: Dagger と Hilt は、KSP で動かしても Java のコードを生成するとされています (公式のページでは確かめられていません。移るときに確かめます)。そのとおりなら、生成されたコードの警告で効くのは、主に lint の `checkGeneratedSources` です。Kotlin の `allWarningsAsErrors` と `extraWarnings` は、Kotlin のソース (手で書いたコードと、Kotlin を生成するプロセッサがあればその出力) に効きます。テストのソースも、lint の対象です。
+  - 未確認のこと: KSP には、警告をエラーにする KSP 自身の設定があるとされています。そのため、Kotlin の `allWarningsAsErrors` で、KSP のプロセッサの警告がエラーになるとは限りません。この設定の有無と、プロセッサの警告がエラーになるかは、移るときに公式のページとビルドで確かめます。上の 2026-10-12 の確認は、警告の設定を入れる前に行ったので、これらは確かめていません。
+  - 移るときにすること: `./gradlew check assembleDebug` で警告を確かめます。直せない警告があるときは、どれを外すか (生成コードを対象から外す、検査を無効にするなど) をユーザーに相談します。
 - Dagger 2.60 から、Hilt の Gradle プラグインを使うとき、プラグインが管理するフラグを設定すると、エラーになります (以前は無視されていました)。
 - `.github/dependabot.yml` のグループは、KSP と Hilt をどう扱うかを、移るときに決めます。
 - WorkManager がきっかけで移るときは、Worker に依存を注入するための追加の設定が要ります。公式の Hilt と Jetpack のページ (出典の節) では、`androidx.hilt:hilt-work` と、追加の注釈プロセッサ (`androidx.hilt:hilt-compiler`) を足し、Worker に `@HiltWorker` を付け、`Application` で WorkManager の設定に `HiltWorkerFactory` を渡し、マニフェストから WorkManager の既定の初期化を外すとしています。この `androidx.hilt:hilt-compiler` は、手順 3 の `hilt-compiler` (Dagger の `com.google.dagger:hilt-compiler`) とは別のライブラリなので、カタログの別名も分けます。版と書き方は、移るときに公式のページで確かめます。
