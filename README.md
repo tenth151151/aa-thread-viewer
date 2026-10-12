@@ -13,6 +13,46 @@ bash bin/check-fullwidth-parens.sh
 ./gradlew spotlessApply
 ```
 
+### git worktree
+
+worktree は `.claude/worktrees/<名前>/` に作ります。Claude Code の worktree と wtp (`.wtp.yml`) が同じ場所を使い、`.gitignore` と spotless の対象から外しています。
+
+worktree は、相対パスで作ります。ホストとコンテナで `.git` を共有していて、リポジトリのパスが違うため、相対パスにすると両方から使えるからです。設定は、`.devcontainer/bin/post-create.sh` が `worktree.useRelativePaths` で行います。
+
+`post-create.sh` はコンテナを作ったときにだけ動きます。すでにあるコンテナと、コンテナを作り直す前のホストでは、リポジトリのルートで次のコマンドを一度実行します。
+
+```bash
+git config worktree.useRelativePaths true
+```
+
+設定は `.git/config` に入り、ホストとコンテナで共有されます。そのため、どちらかで一度実行すれば足ります。
+
+設定を入れる前に作った絶対パスの worktree は、そのままでは絶対パスのままです。相対パスに直すには、リポジトリのルートで、直したい worktree のパスをすべて渡して、次のコマンドを実行します。
+
+```bash
+git worktree repair --relative-paths .claude/worktrees/*
+```
+
+worktree が 1 つもないときは、パスが見つからずエラーで終わりますが、直すものがないので実行は不要です。
+
+これで、渡した worktree の `.git` ファイルと `.git/worktrees/<名前>/gitdir` が、相対パスになります。`extensions.relativeWorktrees` と `core.repositoryformatversion = 1` も、同時に書かれます。
+
+パスは省かないでください。パスを渡した worktree は、必ず直ります。渡さなかった worktree は、git がこちら側のパスで見つけられるときだけ、いっしょに直ります。ホストとコンテナのうち、反対側で作った worktree は、記録された絶対パスがこちら側にないので、渡さないと、終了コード 0 のまま何も直らず、絶対パスのまま残ります。
+
+最初の相対パスの worktree を作ると、`.git/config` に `extensions.relativeWorktrees = true` が書かれ、`core.repositoryformatversion` が 1 になります。worktree を消しても、この 2 つは残ります。そのため、ホストでこのリポジトリを扱う git と、git を使うツール (Android Studio など) は、git 2.48 以上が必要です。
+
+相対パスをやめるときは、worktree を消さずに、次の順に戻せます。
+
+1. `git config --unset worktree.useRelativePaths`
+2. 相対パスの worktree ごとに、パスを渡して `git worktree repair --no-relative-paths .claude/worktrees/<名前>` を実行します。`.git` ファイルと `gitdir` の両方が絶対パスに戻ります。パスを渡さないと、何も直りません。
+3. `git config --unset extensions.relativeWorktrees`
+4. `git config --get-regexp '^extensions\.'` を実行します。ほかの拡張 (`extensions.worktreeConfig` など) が残っているときは、手順 5 に進まず、版を 1 のままにします。何も出ないときだけ、手順 5 に進みます。
+5. `git config core.repositoryformatversion 0`
+
+手順 2 は、手順 3 から 5 より前に行います。
+
+コンテナを作り直すと、`post-create.sh` が `worktree.useRelativePaths` を設定し直します。やめたままにするときは、`post-create.sh` の該当の節も消します。
+
 ### 依存関係の更新
 
 依存関係の更新は、Dependabot (`.github/dependabot.yml`) と手作業で分担しています。

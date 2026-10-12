@@ -111,3 +111,19 @@ if gh auth status >/dev/null 2>&1; then
 else
   log "gh は未ログインです。'gh auth login' を実行してください。"
 fi
+
+# -------------------------------------------------------------
+# git worktree を相対パスにする
+#   ホストとコンテナで .git を共有していて、リポジトリのパスが違う。
+#   worktree のパスを相対パスにすると、どちらからも使える。
+#   設定は .git/config に入るので、ホストの git (2.48 以上) にも効く。
+#   wtp と Claude Code はどちらも git worktree add を使うので、この設定に従う。
+#   ※ 最初の相対パスの worktree を作ると、git が extensions.relativeWorktrees を書き、
+#     core.repositoryformatversion を 1 にする。git 2.48 以上が必要になる。
+# -------------------------------------------------------------
+log "git worktree を相対パスにする設定をします。"
+# なくても困らない設定なので、失敗してもセットアップ全体は止めない。
+# スクリプトのあるディレクトリはリポジトリの中なので、git がリポジトリを見つける。
+if ! git -C "$(dirname -- "${BASH_SOURCE[0]}")" config worktree.useRelativePaths true; then
+  log "git worktree を相対パスにする設定ができませんでした。README の手順で、手動で設定してください。"
+fi

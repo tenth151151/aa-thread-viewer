@@ -1,0 +1,5 @@
+version: "1.0"
+defaults:
+  # worktree の置き場所を、Claude Code の worktree と同じ .claude/worktrees にそろえる。
+  # wtp の既定 (../worktrees) は、コンテナの中では /workspaces/worktrees になり、書き込めない。
+  base_dir: .claude/worktrees
