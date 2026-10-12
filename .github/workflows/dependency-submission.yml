@@ -2,6 +2,7 @@ name: Dependency submission
 
 # Dependabot が推移的な依存関係の脆弱性を検出できるように、Gradle の依存関係のグラフを GitHub に送る。
 # PR では動かない。workflow_dispatch は、既定のブランチにこのファイルがあるときだけ使える。
+# リポジトリの Dependency graph が無効だと、グラフの送信は失敗する。Dependabot alerts を有効にすると、Dependency graph も生成される。
 on:
   push:
     branches: [main]
