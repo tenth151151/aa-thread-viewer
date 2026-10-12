@@ -17,7 +17,9 @@ updates:
       timezone: Asia/Tokyo
     # 同時に開く PR の数 (open-pull-requests-limit) は、既定の 5 のままにする。
     # 1 つの依存関係が複数のグループに当たるときは、パターンがより具体的なグループに入る。
-    # dependabot-core の PatternSpecificityCalculator による。"*" は最も弱い。書く順番は関係ない。
+    # 書く順番は関係ない。
+    # 具体性は、完全一致のパターンが 1000、group:* のパターンが 100 前後、"*" が 1 である。
+    # dependabot-core の updater/lib/dependabot/updater/pattern_specificity_calculator.rb (PatternSpecificityCalculator) による。
     # どのグループにも入らない依存関係は、単独の PR になる。
     # 依存関係の名前は、ライブラリが group:name、プラグインがプラグイン ID そのものである。
     # 例えば AGP は com.android.application になる。
@@ -38,7 +40,22 @@ updates:
         patterns:
           - "org.jetbrains.kotlin:*"
           - "org.jetbrains.kotlin.*"
-      # junit、spotless など、上の 2 つ以外をまとめる。
+      # ビルド用の constraints (gradle/libs.versions.toml の bouncycastle、jose4j、jdom2、commons-lang3、httpclient) だけをまとめる。
+      # これらは AGP のビルド用クラスパスと lint に入る推移的な依存関係で、AGP が試していない版に上がると壊れることがある。
+      # gradle-others と分けるのは、壊れたときに、junit や spotless の更新と切り分けやすくするためである。
+      # パターンが gradle-others の "*" より具体的なので、こちらに入る。
+      # major の更新は破壊的変更を含みうるので、gradle-others と同じく minor と patch だけにし、major は単独の PR にする。
+      build-constraints:
+        patterns:
+          - "org.bouncycastle:*"
+          - "org.bitbucket.b_c:jose4j"
+          - "org.jdom:jdom2"
+          - "org.apache.commons:commons-lang3"
+          - "org.apache.httpcomponents:httpclient"
+        update-types:
+          - minor
+          - patch
+      # junit、spotless など、上の 3 つ以外をまとめる。
       # major の更新は破壊的変更を含みうるので、このグループに入れず、単独の PR にする。
       # AGP と Gradle Wrapper は、影響が大きいので、除外して単独の PR にする。
       # Gradle Wrapper の依存関係の名前は gradle-wrapper である。

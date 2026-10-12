@@ -30,6 +30,7 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 # ビルド用の constraints 専用。アプリの依存関係としては使わない。
 # AGP と lint の推移的な依存関係を、脆弱性の修正版以上に引き上げるために、root と app の build.gradle.kts の constraints が参照する。
 # Dependabot がこのファイルの [libraries] を読むので、更新の PR で版が追える。
+# 更新の PR は、dependabot.yml の build-constraints グループ (minor と patch) にまとまる。
 # bouncycastle の 3 つは同じ版にそろえる。
 bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 bouncycastle-bcpkix = { group = "org.bouncycastle", name = "bcpkix-jdk18on", version.ref = "bouncycastle" }
