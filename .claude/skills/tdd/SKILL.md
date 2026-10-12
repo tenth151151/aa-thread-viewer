@@ -96,7 +96,7 @@ worker は、次のことを報告します。
 - 既存の本体を変えた場合の赤: 実行したコマンドと、期待値の不一致で失敗した抜粋。
 - 緑: 実行したコマンドと、`BUILD SUCCESSFUL` および XML の `tests` と `failures` の値。
 - リファクタリングをしたときは、その内容と実行結果。
-- コミットの前: `bash bin/check-fullwidth-parens.sh` と `./gradlew check assembleDebug` の実行結果 (`BUILD SUCCESSFUL` か、失敗の抜粋)。
+- コミットの前: `bash bin/check-fullwidth-parens.sh` と `./gradlew check assembleDebug koverLog koverXmlReport koverHtmlReport --continue` の実行結果 (`BUILD SUCCESSFUL` か、失敗の抜粋)。
 - 実行できなかった確認があるときは、そう明記します。
 
 ## reviewer の確認手順
@@ -120,13 +120,27 @@ reviewer は読み取り専用で、実物のファイルを変えません。
 
 ```bash
 bash bin/check-fullwidth-parens.sh
-./gradlew check assembleDebug
+./gradlew check assembleDebug koverLog koverXmlReport koverHtmlReport --continue
 ```
 
 - `bin/check-fullwidth-parens.sh` は、全角の丸括弧 (U+FF08、U+FF09) が残っていないかを調べます。見つかったときは、`.claude/rules/writing-style.md` に従って半角に直します。
-- `check` には、単体テスト、Android Lint (警告もエラー。テストのコードと生成されたコードも調べます。`checkTestSources`、`checkGeneratedSources`)、`spotlessCheck` が含まれます。lint の警告で失敗したときも、`.claude/rules/tdd.md` の決まりのとおり、コードを直します。Kotlin のコンパイラの警告も、エラーになります (`allWarningsAsErrors` と `extraWarnings`。使っていない変数なども含みます)。この設定は、テストの実行とコンパイルでも効きます (「警告によるコンパイルエラー」の節を参照)。警告で失敗したときの扱いは、「警告によるコンパイルエラー」の節のとおりです。
+- `check` には、単体テスト、Android Lint (警告もエラー。テストのコードと生成されたコードも調べます。`checkTestSources`、`checkGeneratedSources`)、`spotlessCheck`、Kover の基準値の検査 (`koverVerify`。行のカバレッジが 80% 未満なら失敗します) が含まれます。lint の警告で失敗したときも、`.claude/rules/tdd.md` の決まりのとおり、コードを直します。Kotlin のコンパイラの警告も、エラーになります (`allWarningsAsErrors` と `extraWarnings`。使っていない変数なども含みます)。この設定は、テストの実行とコンパイルでも効きます (「警告によるコンパイルエラー」の節を参照)。警告で失敗したときの扱いは、「警告によるコンパイルエラー」の節のとおりです。
 - format の崩れで失敗したときは、`./gradlew spotlessApply` で直し、もう一度実行します。
 - 緑とリファクタリングの途中は、`./gradlew :app:testDebugUnitTest --rerun` で確認します。
+
+### カバレッジの確認
+
+新しく書いたコードがテストを通っているかは、カバレッジのレポートで確認します。基準値は `check` で検査されるので (手元でも CI でも)、ここでは確認の手順だけを示します。数字とレポートは、debug と release を合わせた全体のものです。次のコマンドは、赤緑の途中で手早く見るためのものです。コミットの前の確認は、「コミットの前に」の節のコマンドで行います。
+
+```bash
+./gradlew koverLog koverHtmlReport
+```
+
+1. `koverLog` の出力 (`application line coverage: <割合>%`) で、行のカバレッジを見ます。
+2. `app/build/reports/kover/html/index.html` を開き、今回書いたクラスの通っていない行を探します。
+3. 通っていない行が、今回扱う振る舞いの行なら、その振る舞いのテストが足りません。サイクルに戻ります。
+4. `@Composable` の関数と、Activity と Application のクラスは、測る対象から外してあります。レポートに出なくても、問題ではありません。
+5. 基準値 (80%) を下回ると `check` が失敗します。基準値と除外の扱いは、`.claude/rules/tdd.md` の決まりのとおりです。
 
 ## コミットの単位
 
