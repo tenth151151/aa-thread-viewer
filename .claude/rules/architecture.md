@@ -1,6 +1,6 @@
 # アーキテクチャのルール
 
-本プロジェクトの設計の方針と、パッケージの分け方を定めます。アプリのコードを追加、変更するときは、必ず従います。決めた経緯は Issue #10 にあります。
+本プロジェクトの設計の方針と、パッケージの分け方を定めます。アプリのコードを追加、変更するときは、必ず従います。
 
 ## 画面の設計
 
@@ -69,7 +69,7 @@ UI 層とデータ層の 2 層で作ります。
 
 依頼を出す監督と、依頼を受けた worker は、どちらも作業を始める前に、依頼が目安に当たるかを確かめます。当たるときは、worker は作業を始めずに監督に伝えます。監督はユーザーに、移るかを相談します。監督も worker も、自分で移ることはしません。監督や worker を通さずにアプリのコードを変えるときも、変える人が作業を始める前に同じように確かめ、当たるときは作業を始めずにユーザーに相談します。reviewer は、変更が目安に当たるときに報告します。これは、確かめ漏れに気づくための二重の確認です。
 
-相談の結果、移らないと決めたときは、その決定と日付を、下の「移らないと決めたこと」の小見出しに書き足します。「移らないと決めたこと」に書いた目安に当たる状態のまま作業を続けるときは、同じことを相談し直しません。新しく別の目安に当たったときは、相談します。
+相談の結果、移らないと決めたときは、その決定を、下の「移らないと決めたこと」の小見出しに書き足します。「移らないと決めたこと」に書いた目安に当たる状態のまま作業を続けるときは、同じことを相談し直しません。新しく別の目安に当たったときは、相談します。
 
 #### 移らないと決めたこと
 
@@ -77,7 +77,7 @@ UI 層とデータ層の 2 層で作ります。
 
 ### Hilt に移るときの手順と注意
 
-2026-10-12 に、使い捨てのプロジェクトで、Hilt 2.60.1、KSP 2.3.12、androidx.hilt 1.4.0 (`hilt-lifecycle-viewmodel-compose`) が、JDK 25、AGP 9.4.1、Kotlin 2.4.21 で、回避策なしで `assembleDebug testDebugUnitTest check` を通ることを確かめました。`kotlin-metadata-jvm` の回避策は要りませんでした。移るときは、その時点の最新の版で、もう一度ビルドを確かめます。
+使い捨てのプロジェクトで、Hilt 2.60.1、KSP 2.3.12、androidx.hilt 1.4.0 (`hilt-lifecycle-viewmodel-compose`) が、JDK 25、AGP 9.4.1、Kotlin 2.4.21 で、回避策なしで `assembleDebug testDebugUnitTest check` を通ることを確かめています。`kotlin-metadata-jvm` の回避策は要りませんでした。移るときは、その時点の最新の版で、もう一度ビルドを確かめます。
 
 手順は次のとおりです。
 
@@ -96,8 +96,13 @@ UI 層とデータ層の 2 層で作ります。
 
 注意は次のとおりです。
 
-- KSP 用のクラスパス (`ksp` で始まる `…ProcessorClasspath` など) には、#24 で入れた constraints (root の `buildscript` と `androidLintTool`) が効きません。移ったあとに Dependabot alerts が出たら、constraints を足す必要があるかを確かめます。
-- Dagger 2.60 から、Hilt の Gradle プラグインを使うとき、プラグインが管理するフラグを設定すると、エラーになります (以前は無視されていました)。
+- KSP 用のクラスパス (`ksp` で始まる `…ProcessorClasspath` など) には、脆弱性の対策で入れているビルド用の constraints (root の `buildscript` と `androidLintTool` のもの) が効きません。移ったあとに Dependabot alerts が出たら、constraints を足す必要があるかを確かめます。
+- 警告を厳しく扱う設定を入れているため、移った直後に、Hilt や KSP が生成したコードの警告でビルドが落ちることがあります。
+  - 設定の内容: `app/build.gradle.kts` で、Kotlin のコンパイラの `allWarningsAsErrors` と `extraWarnings`、lint の `checkGeneratedSources` と `checkTestSources` を有効にしています。Java のコンパイラの警告は、エラーにしていません (`JavaCompile` の `-Werror` がありません)。
+  - 生成コードで効くもの: Dagger と Hilt は、KSP で動かしても Java のコードを生成するとされています (公式のページでは確かめられていません。移るときに確かめます)。そのとおりなら、生成されたコードの警告で効くのは、主に lint の `checkGeneratedSources` です。Kotlin の `allWarningsAsErrors` と `extraWarnings` は、手で書いた Kotlin のコードに効きます。Kotlin を生成するプロセッサの出力に効くかは、下の「未確認のこと」のとおり確かめていません。テストのソースも、lint の対象です。
+  - 未確認のこと: KSP には、警告をエラーにする KSP 自身の設定があるとされています。そのため、Kotlin の `allWarningsAsErrors` で、KSP のプロセッサの警告がエラーになるとは限りません。この設定の有無と、プロセッサの警告がエラーになるかは、移るときに公式のページとビルドで確かめます。上の確認は、警告をエラーにする設定がない状態で行ったもので、これらは確かめていません。
+  - 移るときにすること: `./gradlew check assembleDebug` で警告を確かめます。直せない警告があるときは、どれを外すか (生成コードを対象から外す、検査を無効にするなど) をユーザーに相談します。
+- Dagger 2.60 以降では、Hilt の Gradle プラグインを使うとき、プラグインが管理するフラグを設定すると、エラーになります。
 - `.github/dependabot.yml` のグループは、KSP と Hilt をどう扱うかを、移るときに決めます。
 - WorkManager がきっかけで移るときは、Worker に依存を注入するための追加の設定が要ります。公式の Hilt と Jetpack のページ (出典の節) では、`androidx.hilt:hilt-work` と、追加の注釈プロセッサ (`androidx.hilt:hilt-compiler`) を足し、Worker に `@HiltWorker` を付け、`Application` で WorkManager の設定に `HiltWorkerFactory` を渡し、マニフェストから WorkManager の既定の初期化を外すとしています。この `androidx.hilt:hilt-compiler` は、手順 3 の `hilt-compiler` (Dagger の `com.google.dagger:hilt-compiler`) とは別のライブラリなので、カタログの別名も分けます。版と書き方は、移るときに公式のページで確かめます。
 - 移るときに決めることは、ユーザーに相談します。
@@ -155,7 +160,6 @@ Fake を使います。
 
 ## 出典
 
-- Issue #10 (決めた内容と、Hilt の確認の結果)。
 - Guide to app architecture: https://developer.android.com/topic/architecture
 - Architecture recommendations: https://developer.android.com/topic/architecture/recommendations
 - UI layer: https://developer.android.com/topic/architecture/ui-layer
@@ -170,4 +174,4 @@ Fake を使います。
 - Flow のテスト (`stateIn` と `backgroundScope`): https://developer.android.com/kotlin/flow/test
 - Dagger 2.60 のリリースノート: https://github.com/google/dagger/releases/tag/dagger-2.60
 
-Hilt 2.60.1 の動作確認は、公式のページではなく、Issue #10 と 2026-10-12 の検証にもとづきます。
+Hilt 2.60.1 の動作確認は、公式のページではなく、使い捨てのプロジェクトでの検証にもとづきます。
