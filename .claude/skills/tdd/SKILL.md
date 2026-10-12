@@ -88,7 +88,7 @@ worker は、次のことを報告します。
 - 既存の本体を変えた場合の赤: 実行したコマンドと、期待値の不一致で失敗した抜粋。
 - 緑: 実行したコマンドと、`BUILD SUCCESSFUL` および XML の `tests` と `failures` の値。
 - リファクタリングをしたときは、その内容と実行結果。
-- コミットの前: `./gradlew check assembleDebug` の実行結果 (`BUILD SUCCESSFUL` か、失敗の抜粋)。
+- コミットの前: `bash bin/check-fullwidth-parens.sh` と `./gradlew check assembleDebug` の実行結果 (`BUILD SUCCESSFUL` か、失敗の抜粋)。
 - 実行できなかった確認があるときは、そう明記します。
 
 ## reviewer の確認手順
@@ -111,9 +111,11 @@ reviewer は読み取り専用で、実物のファイルを変えません。
 作業の最後 (コミットや PR の前) に、CI と同じ確認として次を実行します。
 
 ```bash
+bash bin/check-fullwidth-parens.sh
 ./gradlew check assembleDebug
 ```
 
+- `bin/check-fullwidth-parens.sh` は、全角の丸括弧 (U+FF08、U+FF09) が残っていないかを調べます。見つかったときは、`.claude/rules/writing-style.md` に従って半角に直します。
 - `check` には、単体テスト、Android Lint (警告もエラー)、`spotlessCheck` が含まれます。
 - format の崩れで失敗したときは、`./gradlew spotlessApply` で直し、もう一度実行します。
 - 緑とリファクタリングの途中は、これまでどおり `./gradlew :app:testDebugUnitTest --rerun` で確認します。
