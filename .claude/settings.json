@@ -3,6 +3,19 @@
     "type": "command",
     "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/bin/statusline.sh\""
   },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(command -v jq >/dev/null 2>&1 && jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null); bash \"$CLAUDE_PROJECT_DIR/bin/check-fullwidth-parens.sh\" ${f:+\"$f\"} || exit 2"
+          }
+        ]
+      }
+    ]
+  },
   "agent": "supervisor",
   "advisorModel": "opus",
   "permissions": {
