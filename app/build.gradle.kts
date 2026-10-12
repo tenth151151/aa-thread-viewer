@@ -65,10 +65,27 @@ android {
         // 警告もエラーとして扱う (エラーがあればビルドは既定で失敗する)。
         warningsAsErrors = true
 
+        // テストのコードと、生成されたコード (将来の Hilt や KSP) も lint の対象にする。
+        checkTestSources = true
+        checkGeneratedSources = true
+
         // 依存や AGP のバージョンが古いことの検査は、Google Maven への問い合わせなど外部の状況で結果が変わり、
         // コードを変えていなくても CI が日によって失敗する原因になる。
         // バージョンの更新は #9 で Dependabot を導入して扱うため、無効にする。
         disable += listOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
+    }
+}
+
+kotlin {
+    compilerOptions {
+        // Kotlin のコンパイラの警告 (非推奨の API など) をエラーにする。lint の warningsAsErrors は Kotlin のコンパイラの警告を対象にしないため。
+        // アプリの Kotlin のソース (メインとテスト) で使っている API が非推奨になると、CI が落ちることがある。Dependabot が AGP や Kotlin を上げた PR でも起こり得る。これは意図した動きで、警告に対処してから取り込む。
+        // ビルドスクリプト (*.gradle.kts) の DSL の非推奨と、Gradle の非推奨の警告は対象外である。後者は gradle.properties のコメントを参照。
+        allWarningsAsErrors = true
+
+        // 使っていない変数、いらない可視性の修飾子などの追加の検査も有効にする。
+        // Kotlin の新しい版で検査が増えることがあり、コードを変えていなくても、Kotlin を上げる PR で CI が落ちることがある。これも意図した動きである。
+        extraWarnings = true
     }
 }
 
