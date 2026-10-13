@@ -40,8 +40,8 @@ updates:
         patterns:
           - "org.jetbrains.kotlin:*"
           - "org.jetbrains.kotlin.*"
-      # ビルド用の constraints (gradle/libs.versions.toml の bouncycastle、jose4j、jdom2、commons-lang3、httpclient) だけをまとめる。
-      # これらは AGP のビルド用クラスパスと lint に入る推移的な依存関係で、AGP が試していない版に上がると壊れることがある。
+      # ビルド用の constraints (gradle/libs.versions.toml の bouncycastle、jose4j、jdom2、commons-lang3、httpclient、freemarker) だけをまとめる。
+      # これらは AGP や Kover など、プラグインのビルド用クラスパスと lint に入る推移的な依存関係で、プラグインが試していない版に上がると壊れることがある。
       # gradle-others と分けるのは、壊れたときに、junit や spotless の更新と切り分けやすくするためである。
       # パターンが gradle-others の "*" より具体的なので、こちらに入る。
       # major の更新は破壊的変更を含みうるので、gradle-others と同じく minor と patch だけにし、major は単独の PR にする。
@@ -52,6 +52,7 @@ updates:
           - "org.jdom:jdom2"
           - "org.apache.commons:commons-lang3"
           - "org.apache.httpcomponents:httpclient"
+          - "org.freemarker:freemarker"
         update-types:
           - minor
           - patch
@@ -59,6 +60,7 @@ updates:
       # major の更新は破壊的変更を含みうるので、このグループに入れず、単独の PR にする。
       # AGP と Gradle Wrapper は、影響が大きいので、除外して単独の PR にする。
       # Kover (org.jetbrains.kotlinx.kover) も除外して単独の PR にする。0.x の版なので、DSL が変わる更新も minor 扱いになり、まとめた PR に入ると切り分けにくい。
+      # Kover を上げたときは、./gradlew buildEnvironment で、Kover が引き込む freemarker が修正版に追いついたかを確かめ、要らなくなった constraint を外す。
       # Gradle Wrapper の依存関係の名前は gradle-wrapper である。
       # 名前は dependabot-core の gradle/lib/dependabot/gradle/file_parser/distributions_finder.rb にある。
       # com.android.tools.build:gradle は、plugins ブロックで AGP を使うため、このリポジトリでは使わない名前である。
