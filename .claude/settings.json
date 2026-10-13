@@ -18,8 +18,61 @@
   },
   "agent": "supervisor",
   "advisorModel": "opus",
+  "extraKnownMarketplaces": {
+    "mattpocock": {
+      "source": {
+        "source": "github",
+        "repo": "mattpocock/skills",
+        "ref": "v1.3.1"
+      },
+      "autoUpdate": false
+    }
+  },
+  "enabledPlugins": {
+    "mattpocock-skills@mattpocock": true
+  },
   "permissions": {
+    "ask": [
+      "Bash(gh issue create *)",
+      "Bash(gh issue comment *)",
+      "Bash(gh issue edit *)",
+      "Bash(gh issue close *)",
+      "Bash(gh issue reopen *)",
+      "Bash(gh pr comment *)",
+      "Bash(gh pr edit *)",
+      "Bash(gh pr close *)",
+      "Bash(gh pr reopen *)",
+      "Bash(gh pr review *)",
+      "Bash(gh issue delete *)",
+      "Bash(gh issue transfer *)",
+      "Bash(gh issue lock *)",
+      "Bash(gh issue unlock *)",
+      "Bash(gh issue pin *)",
+      "Bash(gh issue unpin *)",
+      "Bash(gh issue develop *)",
+      "Bash(gh label create *)",
+      "Bash(gh label edit *)",
+      "Bash(gh label delete *)",
+      "Bash(gh -R *)",
+      "Bash(gh --repo *)"
+    ],
     "deny": [
+      "Skill(mattpocock-skills:tdd)",
+      "Skill(mattpocock-skills:tdd *)",
+      "Skill(mattpocock-skills:code-review)",
+      "Skill(mattpocock-skills:code-review *)",
+      "Skill(mattpocock-skills:pr)",
+      "Skill(mattpocock-skills:pr *)",
+      "Skill(mattpocock-skills:wizard)",
+      "Skill(mattpocock-skills:wizard *)",
+      "Skill(mattpocock-skills:writing-for-agents)",
+      "Skill(mattpocock-skills:writing-for-agents *)",
+      "Skill(mattpocock-skills:implement)",
+      "Skill(mattpocock-skills:implement *)",
+      "Skill(mattpocock-skills:implement-spec)",
+      "Skill(mattpocock-skills:implement-spec *)",
+      "Skill(mattpocock-skills:setup-matt-pocock-skills)",
+      "Skill(mattpocock-skills:setup-matt-pocock-skills *)",
       "Bash(git push)",
       "Bash(git push origin)",
       "Bash(git push * main)",
