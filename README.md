@@ -15,6 +15,14 @@ bash bin/check-fullwidth-parens.sh
 
 カバレッジは Kover で測ります。数字とレポートは、debug と release を合わせた全体のものです。「CI と同じ確認」のコマンドは、行のカバレッジを標準出力に出し、レポートを `app/build/reports/kover/` に作ります。HTML は `html/index.html`、XML は `report.xml` です。JVM の単体テストだけで測るので、`@Composable` の関数 (`@Preview` の関数を含みます) と、Activity と Application のクラスは、測る対象から外しています。行のカバレッジが 80% を下回ると、`check` が失敗します。基準値と除外は `app/build.gradle.kts` の `kover` に書いています。CI は、行のカバレッジをジョブのサマリーに書き、レポートをアーティファクト `coverage` に上げます。
 
+### Claude Code のスキル
+
+上流の `mattpocock/skills` は、プロジェクトの設定 (`.claude/settings.json` の `extraKnownMarketplaces` と `enabledPlugins`) で、プラグインとして入れています。このプラグインは、マーケットプレイスの中の相対パスのプラグインです。設定を読んだ Claude Code が自動で取得して読み込むので、各自が `claude plugin install` などを実行しなくても使えます。
+
+- 最初にこのフォルダを開いたときは、フォルダの信頼のダイアログを承認します。承認しないと、マーケットプレイスの設定は読まれません。
+- マーケットプレイスを取得したあとのセッションでスキルが出ないときは、`/reload-plugins` を実行するか、セッションを開き直します。
+- 固定する版と入れ方、使うスキルと使わないスキル、Issue の書き方などの決まりは、`.claude/rules/upstream-skills.md` にあります。
+
 ### git worktree
 
 worktree は `.claude/worktrees/<名前>/` に作ります。Claude Code の worktree と wtp (`.wtp.yml`) が同じ場所を使い、`.gitignore` と spotless の対象から外しています。
