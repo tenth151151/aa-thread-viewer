@@ -21,8 +21,8 @@ description: このプロジェクトで TDD の 1 サイクル (赤、緑、リ
 ./gradlew :app:testDebugUnitTest --rerun
 
 # 特定のテストに絞る。クラス名、メソッド名のどちらにも、ワイルドカードを使える。
-./gradlew :app:testDebugUnitTest --rerun --tests '*DatLineParserTest'
-./gradlew :app:testDebugUnitTest --rerun --tests '*DatLineParserTest.*2行目*'
+./gradlew :app:testDebugUnitTest --rerun --tests '*DatParserTest'
+./gradlew :app:testDebugUnitTest --rerun --tests '*DatParserTest.*2行目*'
 
 # コンパイルだけを確認する (テスト)。
 ./gradlew :app:compileDebugUnitTestKotlin
