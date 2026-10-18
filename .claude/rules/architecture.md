@@ -11,7 +11,7 @@ MVVM + UDF (単方向データフロー) で作ります。
 - 画面からの操作は、ViewModel のメソッドで受けます。
 - UI state を sealed にするか data class にするかは、画面ごとに決めます。
 - ViewModel を持つ画面は、2 つの Composable に分けます。ViewModel を受け取る画面 (例: `XxxScreen(viewModel)`) と、UI state と操作のラムダだけを受け取る、状態を持たない Composable (例: `XxxContent(uiState, onXxx)`) です。プレビューは、状態を持たない Composable で行います。Compose の UI テストは、今は書きません (テストは JVM の JUnit 4 で動かしていて、エミュレータを使う計装テスト (`androidTest`) は使わない前提のためです)。UI テストが要るときは、ユーザーに相談します。
-- 画面 (`XxxScreen`) は、`collectAsStateWithLifecycle` (`androidx.lifecycle:lifecycle-runtime-compose`) で UI state を集め、状態を持たない Composable に渡します。このライブラリを足す時期は、「最初の ViewModel を作るときにすること」の節を参照してください。
+- 画面 (`XxxScreen`) は、`collectAsStateWithLifecycle` (`androidx.lifecycle:lifecycle-runtime-compose`) で UI state を集め、状態を持たない Composable に渡します。このライブラリを足す時期は、「最初の ViewModel を作るときにすること」の節を、版は「画面の切り替え」の節を参照してください。
 
 ```kotlin
 @Composable
@@ -32,6 +32,28 @@ fun XxxContent(uiState: XxxUiState, onXxx: () -> Unit, modifier: Modifier = Modi
 - ViewModel に `Activity`、`Context`、`Resources` を渡しません。ViewModel で `Context` が要りそうなときは、置き場所の層が正しいかを見直します。
 - ViewModel から UI にイベントを送りません。イベントは ViewModel で処理し、結果を UI state の更新として反映します。
 - ViewModel は、データ層とのやり取りに Kotlin の Flow と、`viewModelScope` で呼ぶ suspend 関数を使います。
+
+### 画面の切り替え
+
+この節が、画面の切り替えの決まりの正です。ほかの節からは、この節を指します。
+
+- 画面の切り替えには Navigation 3 を使います (`docs/adr/0001-navigation-3.md`)。Navigation Compose は使いません。
+
+#### 足すライブラリと時期
+
+- 画面を 2 つ以上にするとき (`NavDisplay` を入れるとき) に、`androidx.navigation3` の `navigation3-runtime` と `navigation3-ui` を足します。あわせて、`kotlinx-serialization-core` と、Kotlin の serialization のプラグイン (`org.jetbrains.kotlin.plugin.serialization`) を足します。`kotlinx-serialization-core` は、画面のキーをシリアライズできるようにするためです (出典は「出典」の節の Navigation 3 のはじめかた)。プラグインは公式では任意とされていますが、本プロジェクトでは、画面のキーに `@Serializable` を付けてシリアライザーを生成するので、足します。serialization のプラグインの版は、Kotlin の版にそろえます。
+- `NavDisplay` と ViewModel を持つ画面の両方がそろったときに、`lifecycle-viewmodel-navigation3` を足します (画面の切り替えを入れるときと、最初の ViewModel を作るときの、遅いほう)。
+- Lifecycle のライブラリ (`lifecycle-runtime-compose`、`lifecycle-viewmodel-compose`、`lifecycle-viewmodel-navigation3`) は、同じ安定版にそろえます。版は Lifecycle のリリースノートで確かめます。Navigation 3 が 1.2.0 のとき、公式の Navigation 3 のはじめかたのページの例は、`lifecycle-viewmodel-navigation3` に alpha の版を示していました。
+
+#### デコレーター
+
+`NavDisplay` の `entryDecorators` は、`NavDisplay` 全体で 1 つのリストです。ViewModel を持つ画面があるときは、このリストに `rememberSaveableStateHolderNavEntryDecorator()` と `rememberViewModelStoreNavEntryDecorator()` を、この順で並べます。`entryDecorators` を指定すると既定のリストが置き換わるので、`rememberSaveableStateHolderNavEntryDecorator()` も必ず並べます。並べないと、エントリーごとの `rememberSaveable` の状態が保たれないおそれがあります。出典は「出典」の節の Navigation 3 のレシピです。
+
+#### ViewModel のスコープ
+
+- `NavDisplay` を使うときは、ViewModel を画面のエントリーにスコープします (同じ画面がバックスタックに複数あるときは、エントリーごとに別の ViewModel になります)。画面の切り替えを入れるときは、既にある ViewModel も、エントリーにスコープするように直します。
+- `NavDisplay` がなく画面が 1 つのうちは、ViewModel は Activity のスコープになります。画面が 1 つなので共有されず、それでかまいません。
+- 画面をまたいで ViewModel を共有したいときは、Hilt に移る目安に当たるので、必ず相談します。
 
 ## 層
 
@@ -65,7 +87,8 @@ UI 層とデータ層の 2 層で作ります。
 
 - ViewModel を持つ画面が 2 つ以上になったとき。数えるのは ViewModel を持つ画面だけです。表示だけの画面は数えません。ViewModel を持つ 2 つ目の画面を作る変更 (または、表示だけの画面に ViewModel を足して 2 つ目にする変更) が、ちょうど目安に当たり、必ず相談になります。
 - WorkManager を使うとき。
-- ナビゲーションのグラフにスコープして、画面をまたいで共有する ViewModel ができたとき。行き先ごとの既定のスコープの ViewModel は、この目安には数えません。
+- 画面をまたいで共有するために作る ViewModel (Activity にスコープして複数の画面で使うものや、複数の画面のエントリーで共有するもの) を作るとき。
+  - 公式は「ナビゲーションのバックスタックにスコープした ViewModel」を例に挙げています。本プロジェクトでは、画面をまたいで共有するものだけを数えます。どの ViewModel が共有に当たらないかは、「画面の切り替え」の節の「ViewModel のスコープ」にあります。
 
 依頼を出す監督と、依頼を受けた worker は、どちらも作業を始める前に、依頼が目安に当たるかを確かめます。当たるときは、worker は作業を始めずに監督に伝えます。監督はユーザーに、移るかを相談します。監督も worker も、自分で移ることはしません。監督や worker を通さずにアプリのコードを変えるときも、変える人が作業を始める前に同じように確かめ、当たるときは作業を始めずにユーザーに相談します。reviewer は、変更が目安に当たるときに報告します。これは、確かめ漏れに気づくための二重の確認です。
 
@@ -140,7 +163,7 @@ io/github/tenth151151/aathreadviewer/
 
 最初の ViewModel を作るときに、次を行います。
 
-- Lifecycle のライブラリ (`lifecycle-runtime-compose`、`lifecycle-viewmodel-compose`) を、`gradle/libs.versions.toml` と `app/build.gradle.kts` に足します。
+- Lifecycle のライブラリ (`lifecycle-runtime-compose`、`lifecycle-viewmodel-compose`) を、`gradle/libs.versions.toml` と `app/build.gradle.kts` に足します。版と、`lifecycle-viewmodel-navigation3` を足す時期は、「画面の切り替え」の節に従います。`NavDisplay` があるときは、デコレーターも、その節のとおりに並べます。
 - `kotlinx-coroutines-test` などを入れます。
 - 手動の DI での ViewModel の作り方 (`ViewModelProvider.Factory` など) を決めます。**ViewModel を作る前に**、ユーザーに相談します。
 - `/tdd` スキル (`.claude/skills/tdd/SKILL.md`) に、ViewModel のテストの書き方 (Fake を渡す、Main ディスパッチャーの差し替えなど) と、`stateIn(…, SharingStarted.WhileSubscribed(…), …)` で作った `StateFlow` の注意を足します。注意とは、集める側がいないと `value` が初期値のままになることです。テストで `value` を検証するときは、`backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.xxx.collect {} }` のように、空の collector を用意します (出典は「出典」の節の Flow のテストのページ)。
@@ -172,6 +195,8 @@ Fake を使います。
 - androidx.hilt.navigation.compose の `hiltViewModel` のリファレンス (非推奨の表示): https://developer.android.com/reference/kotlin/androidx/hilt/navigation/compose/hiltViewModel.composable
 - Hilt と Jetpack (WorkManager への注入): https://developer.android.com/training/dependency-injection/hilt-jetpack
 - Flow のテスト (`stateIn` と `backgroundScope`): https://developer.android.com/kotlin/flow/test
+- Navigation 3 のはじめかた: https://developer.android.com/guide/navigation/navigation-3/get-started
+- Navigation 3 のレシピ (画面ごとの ViewModel のスコープ): https://developer.android.com/guide/navigation/navigation-3/recipes/passingarguments
 - Dagger 2.60 のリリースノート: https://github.com/google/dagger/releases/tag/dagger-2.60
 
 Hilt 2.60.1 の動作確認は、公式のページではなく、使い捨てのプロジェクトでの検証にもとづきます。
