@@ -60,13 +60,15 @@ git reset                     # 全部 unstage する (作業ツリーはその�
 
 ```bash
 git update-index --add --cacheinfo "100644,$(git rev-parse "$ORIG:path/to/file"),path/to/file"
-git commit -F - <<'EOF'
+git commit -F - <<'AATV_COMMIT_MESSAGE_END'
 <メッセージ>
 
-<コミットのルールに従った署名行>
-EOF
+<メインのセッションのシステム指示で指定された Co-Authored-By の行>
+AATV_COMMIT_MESSAGE_END
 ```
 
+- 区切りの語は、メッセージに出てこない語にする。`EOF` だけの行がメッセージにあると、そこでヒアドキュメントが終わり、残りの行がコマンドとして実行されるため。
+- Co-Authored-By の行を付けないと決まっているときは、その行と直前の空行を省く。
 - ファイル単位で分けられるなら、`git add <path>` でもよい。
 - **削除・リネームも忘れずにコミットに入れる**。`git reset` 直後の index は分岐点の状態なので、最終版で消えたファイルは放っておくと index に残り続ける。先に、ブランチ全体で何が起きたかを一覧する。
 
