@@ -151,6 +151,20 @@ class DatParserTest {
     }
 
     @Test
+    fun `タイトルの文字参照を文字に戻す`() {
+        val thread = DatParser.parse("a<>a@<>d1<>b1<>【AA】A&amp;B &gt; C")
+
+        assertEquals("【AA】A&B > C", thread.title)
+    }
+
+    @Test
+    fun `タイトルのタグを外して文字を残す`() {
+        val thread = DatParser.parse("a<>a@<>d1<>b1<><b>太字</b>のタイトル")
+
+        assertEquals("太字のタイトル", thread.title)
+    }
+
+    @Test
     fun `2行目以降の5つ目の欄はタイトルにしない`() {
         val text = "a<>a@<>d1<>b1<>\nb<>b@<>d2<>b2<>別の欄"
 

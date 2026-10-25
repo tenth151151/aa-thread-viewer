@@ -27,7 +27,12 @@ object DatParser {
                     )
                 }
             }
-        val title = rows.firstOrNull()?.getOrNull(TITLE_INDEX)?.takeIf { it.isNotBlank() }
+        val title =
+            rows
+                .firstOrNull()
+                ?.getOrNull(TITLE_INDEX)
+                ?.takeIf { it.isNotBlank() }
+                ?.let { unescape(stripTags(it)) }
         return DatThread(title = title, posts = posts)
     }
 
