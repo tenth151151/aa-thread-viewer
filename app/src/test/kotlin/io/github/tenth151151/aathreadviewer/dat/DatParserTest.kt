@@ -18,9 +18,112 @@ class DatParserTest {
                     name = "名無しさん",
                     mail = "sage",
                     dateAndId = "2026/10/11(日) 12:34:56.78 ID:abcd1234",
-                    body = " 本文です ",
+                    body = "本文です",
                 ),
             ),
+            thread.posts,
+        )
+    }
+
+    @Test
+    fun `本文のリンクのタグを外して文字を残す`() {
+        val thread =
+            DatParser.parse(
+                "a<>a@<>d1<><a href=\"../test/read.cgi/x/1/1\" target=\"_blank\">リンク</a>のあと<>",
+            )
+
+        assertEquals(
+            listOf(Post.Readable(1, "a", "a@", "d1", "リンクのあと")),
+            thread.posts,
+        )
+    }
+
+    @Test
+    fun `本文の太字のタグを外して文字を残す`() {
+        val thread = DatParser.parse("a<>a@<>d1<><b>太字</b><>")
+
+        assertEquals(
+            listOf(Post.Readable(1, "a", "a@", "d1", "太字")),
+            thread.posts,
+        )
+    }
+
+    @Test
+    fun `本文のbrタグとほかのタグが混ざっていても改行を残してタグを外す`() {
+        val thread = DatParser.parse("a<>a@<>d1<><b>1行目</b><br>2行目<>")
+
+        assertEquals(
+            listOf(Post.Readable(1, "a", "a@", "d1", "1行目\n2行目")),
+            thread.posts,
+        )
+    }
+
+    @Test
+    fun `名前のタグを外して文字を残す`() {
+        val thread = DatParser.parse("名無し</b>◆abc<b><>a@<>d1<>本文<>")
+
+        assertEquals(
+            listOf(Post.Readable(1, "名無し◆abc", "a@", "d1", "本文")),
+            thread.posts,
+        )
+    }
+
+    @Test
+    fun `本文の名前つきの文字参照を文字に戻す`() {
+        val thread = DatParser.parse("a<>a@<>d1<>&gt;&gt;1 &lt;&amp;&quot;&hearts;&copy;<>")
+
+        assertEquals(
+            listOf(Post.Readable(1, "a", "a@", "d1", ">>1 <&\"♥©")),
+            thread.posts,
+        )
+    }
+
+    @Test
+    fun `本文の数値の文字参照を10進数も16進数も文字に戻す`() {
+        val thread = DatParser.parse("a<>a@<>d1<>&hearts;&#9829;&#x2665;<>")
+
+        assertEquals(
+            listOf(Post.Readable(1, "a", "a@", "d1", "♥♥♥")),
+            thread.posts,
+        )
+    }
+
+    @Test
+    fun `文字参照は2重に戻さない`() {
+        val thread = DatParser.parse("a<>a@<>d1<>&amp;lt;<>")
+
+        assertEquals(
+            listOf(Post.Readable(1, "a", "a@", "d1", "&lt;")),
+            thread.posts,
+        )
+    }
+
+    @Test
+    fun `文字参照で戻した山括弧はタグとして外さない`() {
+        val thread = DatParser.parse("a<>a@<>d1<>&lt;b&gt;太字&lt;/b&gt;<>")
+
+        assertEquals(
+            listOf(Post.Readable(1, "a", "a@", "d1", "<b>太字</b>")),
+            thread.posts,
+        )
+    }
+
+    @Test
+    fun `名前の文字参照を文字に戻す`() {
+        val thread = DatParser.parse("名無し&amp;<>a@<>d1<>本文<>")
+
+        assertEquals(
+            listOf(Post.Readable(1, "名無し&", "a@", "d1", "本文")),
+            thread.posts,
+        )
+    }
+
+    @Test
+    fun `本文のbrタグを改行にする`() {
+        val thread = DatParser.parse("a<>a@<>d1<>1行目<br>2行目<br>3行目<>")
+
+        assertEquals(
+            listOf(Post.Readable(1, "a", "a@", "d1", "1行目\n2行目\n3行目")),
             thread.posts,
         )
     }
@@ -269,5 +372,70 @@ class DatParserTest {
             ),
             thread.posts,
         )
+    }
+
+    private fun bodyOf(rawBody: String): String {
+        val post = DatParser.parse("n<>m<>d<>$rawBody<>T").posts.single() as Post.Readable
+        return post.body
+    }
+
+    @Test
+    fun `本文のbrの前後と両端に足された空白を1つずつ取り除く`() {
+        assertEquals("1行目\n2行目", bodyOf(" 1行目 <br> 2行目 "))
+    }
+
+    @Test
+    fun `本文に足された空白がないときは何もしない`() {
+        assertEquals("1行目\n2行目", bodyOf("1行目<br>2行目"))
+    }
+
+    @Test
+    fun `brの後ろの空白が複数のときは1つだけ取り除く`() {
+        assertEquals("1行目\n  AA", bodyOf(" 1行目 <br>   AA "))
+    }
+
+    @Test
+    fun `本文の先頭の空白が複数のときは1つだけ取り除く`() {
+        assertEquals("  AA\n2行目", bodyOf("   AA <br> 2行目 "))
+    }
+
+    @Test
+    fun `本文の先頭の全角の空白は取り除かない`() {
+        assertEquals("　全角\n2行目", bodyOf("　全角 <br> 2行目 "))
+    }
+
+    @Test
+    fun `片側だけに空白があるときはその1つだけを取り除く`() {
+        assertEquals("1行目\n2行目", bodyOf("1行目 <br>2行目"))
+    }
+
+    @Test
+    fun `空行の前後に足された空白を取り除いて空行を残す`() {
+        assertEquals("a\n\nb", bodyOf(" a <br>  <br> b "))
+    }
+
+    @Test
+    fun `名前の空白は取り除かない`() {
+        val post = DatParser.parse(" 名無し <>m<>d<>b<>T").posts.single() as Post.Readable
+
+        assertEquals(" 名無し ", post.name)
+    }
+
+    @Test
+    fun `範囲を超えた数値の文字参照があっても、その欄だけ戻さずにスレッド全体を読める`() {
+        val text =
+            listOf(
+                "名無し&#1114112;<>m<>d<> <b>a</b>&gt;&#1114112;<br>x <>T",
+                "名無し<>m<>d<> &gt;&#x110000; <>",
+                "名無し&lt;<>m<>d<> &gt;&gt;1 <>",
+            ).joinToString("\n")
+
+        val posts = DatParser.parse(text).posts.map { it as Post.Readable }
+
+        assertEquals("名無し&#1114112;", posts[0].name)
+        assertEquals("a&gt;&#1114112;\nx", posts[0].body)
+        assertEquals("&gt;&#x110000;", posts[1].body)
+        assertEquals("名無し<", posts[2].name)
+        assertEquals(">>1", posts[2].body)
     }
 }
