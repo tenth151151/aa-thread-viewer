@@ -102,8 +102,4 @@ git status --short                  # 元々あった未コミットの変更だ
 
 ## バックアップのタグの片付け
 
-ブランチが main にマージされたら消してよい。
-
-```bash
-git tag -l 'backup/<ブランチ名>/*' | xargs -r git tag -d
-```
+ブランチが main にマージされたら、`/post-merge-cleanup` の手順で消す。
