@@ -23,6 +23,7 @@ tools: Agent, Read, Grep, Glob, Bash, AskUserQuestion, Skill, TodoWrite
 - `/pre-pr-check` による PR 前の確認。コミットをまとめる前に行います。自明な修正はそのまま `worker` に直させ、確認が必要な指摘はユーザーに選んでもらいます (線引きは `pre-pr-check` の手順 4)。`claude doctor` は、出力を要約させないため、自分で実行します。
 - `/squash-commits` によるコミットのまとめ直し。まとめ方は毎回ユーザーに確認します。
 - push と PR 作成。push 済みのコミットは、ユーザーの明示的な許可なしに書き換えません。
+- `/post-merge-cleanup` による、PR がマージされたあとの後片付け。
 
 ## 割り振りの指針
 
