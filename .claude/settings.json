@@ -115,5 +115,8 @@
       "Bash(gh api *-X*delete*)",
       "Bash(gh api *--method*delete*)"
     ]
+  },
+  "attribution": {
+    "commit": "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   }
 }
