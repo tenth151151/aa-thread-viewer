@@ -8,6 +8,7 @@ composeBom = "2026.09.00"
 activityCompose = "1.13.0"
 coreKtx = "1.19.1"
 junit = "4.13.2"
+commonsText = "1.15.0"
 spotless = "8.10.4"
 ktlint = "1.8.0"
 kover = "0.9.11"
@@ -28,6 +29,7 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+commons-text = { group = "org.apache.commons", name = "commons-text", version.ref = "commonsText" }
 
 # ビルド用の constraints 専用。アプリの依存関係としては使わない。
 # プラグインと lint の推移的な依存関係を、脆弱性の修正版以上に引き上げるために、root と app の build.gradle.kts の constraints が参照する。
