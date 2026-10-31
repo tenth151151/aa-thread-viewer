@@ -101,6 +101,53 @@ curl -fsSL https://claude.ai/install.sh | bash
 log "インストールが完了しました。バージョン: $(claude --version)"
 
 # -------------------------------------------------------------
+# 上流のスキルのプラグイン (mattpocock/skills)
+#   Claude Code は、起動したときに installed_plugins.json とキャッシュだけを読み、
+#   マーケットプレイスの確認は起動のあとに背景で行う。
+#   インストールの記録がない間は、起動しただけではスキルが出ず、セッションごとに /reload-plugins が要る。
+#   コンテナ作成時に project スコープでインストールして記録を作り、起動しただけでスキルが出るようにする。
+#   記録は ~/.claude (ボリューム) に残る。
+#   ※ スクリプトの中では、版を下の UPSTREAM_SKILLS_REF の 1 か所だけに書く。
+#     .claude/settings.json の extraKnownMarketplaces の ref と同じ値にする。
+#     版を上げるときは、ここも直す (.claude/rules/upstream-skills.md)。
+# -------------------------------------------------------------
+readonly UPSTREAM_SKILLS_REF="v1.3.1"
+# marketplace add は git clone を使うので、ネットワークが不安定だと止まったまま進まないおそれがある。
+# 失敗してもセットアップを止めない方針に合わせ、時間切れも失敗として扱う。
+# 余裕を見て、コマンドごとに 120 秒にする。
+# timeout は SIGTERM しか送らないので、claude が SIGTERM で止まらないときは、10 秒後に SIGKILL を送る。
+readonly UPSTREAM_SKILLS_TIMEOUT=120
+# --scope project は .claude/settings.json を書き換え、キーの順番を変えることがある。
+# 実行の前後で内容を元に戻し、作業ツリーの未コミットの変更も壊さない。
+install_upstream_plugin() {
+  local root="$1" ref="$2" settings backup rc=0
+  settings="$root/.claude/settings.json"
+  backup="$(mktemp)" || return 1
+  if ! cat -- "$settings" >"$backup"; then
+    rm -f -- "$backup"
+    return 1
+  fi
+  (
+    cd -- "$root" &&
+      timeout -k 10 "$UPSTREAM_SKILLS_TIMEOUT" claude plugin marketplace add "mattpocock/skills#${ref}" --scope project &&
+      timeout -k 10 "$UPSTREAM_SKILLS_TIMEOUT" claude plugin install mattpocock-skills@mattpocock --scope project
+  ) || rc=$?
+  # 成否にかかわらず、元の内容に戻す。
+  cat -- "$backup" >"$settings" || rc=1
+  rm -f -- "$backup"
+  return "$rc"
+}
+
+log "上流のスキルのプラグインをインストールします。"
+# なくても困らないものなので、失敗してもセットアップ全体は止めない。
+if ! install_upstream_plugin "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)" "$UPSTREAM_SKILLS_REF"; then
+  log "上流のスキルのプラグインをインストールできませんでした。ネットワークやログインの状態を確かめ、リポジトリのフォルダで次のコマンドを手で実行してください。"
+  log "  claude plugin marketplace add mattpocock/skills#${UPSTREAM_SKILLS_REF} --scope project"
+  log "  claude plugin install mattpocock-skills@mattpocock --scope project"
+  log "手で実行したあとは、'git diff .claude/settings.json' で差分を確かめ、並び替えだけなら戻してください。詳しくは README の「Claude Code のスキル」を見てください。"
+fi
+
+# -------------------------------------------------------------
 # GitHub CLI (gh)
 #   ログイン済み (ボリュームに認証情報が残っている) なら、
 #   git の push / pull でも gh の認証を使えるように設定する。

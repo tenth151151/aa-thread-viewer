@@ -6,7 +6,8 @@
 
 - プラグインは `mattpocock-skills@mattpocock` で、マーケットプレイスの版はタグ `v1.3.1` です。設定は `.claude/settings.json` の `extraKnownMarketplaces` と `enabledPlugins` にあります。
 - `autoUpdate` は使いません (`false`)。タグで固定して、読んだ内容が知らないうちに変わりにくくするためです。タグは付け替えられることがあるので、完全ではありません。
-- 版を上げるときは、`ref` を変える PR にします。上流の差分を読み、このファイルと `docs/agents/` の内容が、新しい版に合うかを確かめます。
+- コンテナの作成時には、`.devcontainer/bin/post-create.sh` が同じ版を `--scope project` でインストールします。Dockerfile で `jq` を入れておらず、ベースイメージにあるとは限らないため、版を設定から読まず、スクリプトの `UPSTREAM_SKILLS_REF` に書いています。
+- 版を上げるときは、`.claude/settings.json` の `ref` と、`.devcontainer/bin/post-create.sh` の `UPSTREAM_SKILLS_REF` と、`README.md` の版を変える PR にします。上流の差分を読み、このファイルと `docs/agents/` の内容が、新しい版に合うかを確かめます。
 
 ## このプロジェクトのルールと流れを正にする
 
