@@ -116,6 +116,11 @@ readonly UPSTREAM_SKILLS_REF="v1.3.1"
 # 失敗してもセットアップを止めない方針に合わせ、時間切れも失敗として扱う。
 # 余裕を見て、コマンドごとに 120 秒にする。
 # timeout は SIGTERM しか送らないので、claude が SIGTERM で止まらないときは、10 秒後に SIGKILL を送る。
+# 各コマンドは、標準入力を /dev/null にし、出力を 2>&1 | cat に通す。timeout は自分を新しいプロセスグループに移すので、
+# claude は端末のバックグラウンドのグループになる。標準入力か出力のどちらかが端末のままだと、
+# claude は起動してすぐ端末の設定を変えて SIGTTOU を受け、停止したまま進まない (Claude Code 2.1.316 で確かめた)。
+# 両方を端末から外すと止まらない。出力はパイプでログに残り、timeout が子プロセス (git など) まで止める効き方も保てる。
+# パイプの終了コードは、pipefail により cat ではなく timeout (claude) のものになる。
 readonly UPSTREAM_SKILLS_TIMEOUT=120
 # --scope project は .claude/settings.json を書き換え、キーの順番を変え、marketplace add は autoUpdate を消すことがある。
 # 実行の前後で内容を元に戻し、作業ツリーの未コミットの変更も壊さない。
@@ -130,9 +135,9 @@ install_upstream_plugin() {
   fi
   (
     cd -- "$root" &&
-      timeout -k 10 "$UPSTREAM_SKILLS_TIMEOUT" claude plugin marketplace add "mattpocock/skills#${ref}" --scope project &&
-      timeout -k 10 "$UPSTREAM_SKILLS_TIMEOUT" claude plugin install mattpocock-skills@mattpocock --scope project &&
-      timeout -k 10 "$UPSTREAM_SKILLS_TIMEOUT" claude plugin update mattpocock-skills@mattpocock --scope project
+      timeout -k 10 "$UPSTREAM_SKILLS_TIMEOUT" claude plugin marketplace add "mattpocock/skills#${ref}" --scope project </dev/null 2>&1 | cat &&
+      timeout -k 10 "$UPSTREAM_SKILLS_TIMEOUT" claude plugin install mattpocock-skills@mattpocock --scope project </dev/null 2>&1 | cat &&
+      timeout -k 10 "$UPSTREAM_SKILLS_TIMEOUT" claude plugin update mattpocock-skills@mattpocock --scope project </dev/null 2>&1 | cat
   ) || rc=$?
   # 成否にかかわらず、元の内容に戻す。
   cat -- "$backup" >"$settings" || rc=1
