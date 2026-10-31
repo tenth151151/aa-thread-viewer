@@ -117,8 +117,9 @@ readonly UPSTREAM_SKILLS_REF="v1.3.1"
 # 余裕を見て、コマンドごとに 120 秒にする。
 # timeout は SIGTERM しか送らないので、claude が SIGTERM で止まらないときは、10 秒後に SIGKILL を送る。
 readonly UPSTREAM_SKILLS_TIMEOUT=120
-# --scope project は .claude/settings.json を書き換え、キーの順番を変えることがある。
+# --scope project は .claude/settings.json を書き換え、キーの順番を変え、marketplace add は autoUpdate を消すことがある。
 # 実行の前後で内容を元に戻し、作業ツリーの未コミットの変更も壊さない。
+# install はすでに入っているときは何もしないので、版を上げたときに新しくするため、update も実行する。
 install_upstream_plugin() {
   local root="$1" ref="$2" settings backup rc=0
   settings="$root/.claude/settings.json"
@@ -130,7 +131,8 @@ install_upstream_plugin() {
   (
     cd -- "$root" &&
       timeout -k 10 "$UPSTREAM_SKILLS_TIMEOUT" claude plugin marketplace add "mattpocock/skills#${ref}" --scope project &&
-      timeout -k 10 "$UPSTREAM_SKILLS_TIMEOUT" claude plugin install mattpocock-skills@mattpocock --scope project
+      timeout -k 10 "$UPSTREAM_SKILLS_TIMEOUT" claude plugin install mattpocock-skills@mattpocock --scope project &&
+      timeout -k 10 "$UPSTREAM_SKILLS_TIMEOUT" claude plugin update mattpocock-skills@mattpocock --scope project
   ) || rc=$?
   # 成否にかかわらず、元の内容に戻す。
   cat -- "$backup" >"$settings" || rc=1
@@ -144,7 +146,8 @@ if ! install_upstream_plugin "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." 
   log "上流のスキルのプラグインをインストールできませんでした。ネットワークやログインの状態を確かめ、リポジトリのフォルダで次のコマンドを手で実行してください。"
   log "  claude plugin marketplace add mattpocock/skills#${UPSTREAM_SKILLS_REF} --scope project"
   log "  claude plugin install mattpocock-skills@mattpocock --scope project"
-  log "手で実行したあとは、'git diff .claude/settings.json' で差分を確かめ、並び替えだけなら戻してください。詳しくは README の「Claude Code のスキル」を見てください。"
+  log "  claude plugin update mattpocock-skills@mattpocock --scope project"
+  log "手で実行したあとは、'git diff .claude/settings.json' で差分を確かめ、差分がこれらのコマンドによるものだけなら戻してください。詳しくは README の「Claude Code のスキル」を見てください。"
 fi
 
 # -------------------------------------------------------------

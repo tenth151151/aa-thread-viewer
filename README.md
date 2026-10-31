@@ -17,14 +17,17 @@ bash bin/check-fullwidth-parens.sh
 
 ### Claude Code のスキル
 
-上流の `mattpocock/skills` は、プロジェクトの設定 (`.claude/settings.json` の `extraKnownMarketplaces` と `enabledPlugins`) で、プラグインとして入れています。このプラグインは、マーケットプレイスの中の相対パスのプラグインです。Claude Code は、起動したときにインストールの記録 (`~/.claude/plugins/installed_plugins.json`) とキャッシュだけを読み、マーケットプレイスの確認は起動のあとに背景で行います。インストールの記録がない間は、起動しただけではスキルが出ず、セッションごとに `/reload-plugins` が要ります。そのため、`.devcontainer/bin/post-create.sh` が、コンテナの作成時に `claude plugin marketplace add` と `claude plugin install` を `--scope project` で実行し、記録を作っておきます。記録は `~/.claude` (ボリューム) に残ります。このインストールに失敗してもセットアップは止まりません。手で入れるときは、リポジトリのフォルダで次のコマンドを実行します。
+上流の `mattpocock/skills` は、プロジェクトの設定 (`.claude/settings.json` の `extraKnownMarketplaces` と `enabledPlugins`) で、プラグインとして入れています。このプラグインは、マーケットプレイスの中の相対パスのプラグインです。Claude Code は、起動したときにインストールの記録 (`~/.claude/plugins/installed_plugins.json`) とキャッシュだけを読み、マーケットプレイスの確認は起動のあとに背景で行います。インストールの記録がない間は、起動しただけではスキルが出ず、セッションごとに `/reload-plugins` が要ります。そのため、`.devcontainer/bin/post-create.sh` が、コンテナの作成時に `claude plugin marketplace add`、`claude plugin install`、`claude plugin update` を `--scope project` で実行し、記録を作っておきます。記録は `~/.claude` (ボリューム) に残ります。このインストールに失敗してもセットアップは止まりません。手で入れるときは、リポジトリのフォルダで次のコマンドを実行します。
 
 ```bash
 claude plugin marketplace add mattpocock/skills#v1.3.1 --scope project
 claude plugin install mattpocock-skills@mattpocock --scope project
+claude plugin update mattpocock-skills@mattpocock --scope project
 ```
 
-- `--scope project` の 2 つのコマンドは、`.claude/settings.json` を書き換えます (キーの並び替えだけで、中身は同じです)。手で実行したあとは、`git diff .claude/settings.json` で差分を確かめ、並び替えだけなら `git restore .claude/settings.json` で戻します。`settings.json` にまだコミットしていない自分の変更があるときは、`git restore` で消えてしまうので、先に退避してください。スクリプトは、実行の前後で内容を戻しています。
+`install` は、すでに入っているときは何もしません。版を上げたときにも新しくするため、`update` も実行します。
+
+- `--scope project` の `install` は `.claude/settings.json` のキーの順番を変え、`marketplace add` は順番に加えて `autoUpdate: false` を消すことがあります。手で実行したあとは、`git diff .claude/settings.json` で差分を確かめ、差分がこれらのコマンドによるものだけなら、`git restore .claude/settings.json` で戻します。`settings.json` にまだコミットしていない自分の変更があるときは、`git restore` で消えてしまうので、先に退避してください。スクリプトは、実行の前後で内容を戻しています。
 - フォルダを最初に開いたときは、信頼のダイアログを承認します。承認しないと、マーケットプレイスの設定は読まれません。
 - インストールしていないとき (スクリプトが失敗したときなど) は、起動しただけではスキルが出ません。`/reload-plugins` を実行するか、上のコマンドで入れてから開き直します。
 - 固定する版と入れ方、使うスキルと使わないスキル、Issue の書き方などの決まりは、`.claude/rules/upstream-skills.md` にあります。
