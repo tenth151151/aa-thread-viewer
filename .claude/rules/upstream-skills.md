@@ -37,18 +37,18 @@
 ## Issue
 
 - 本文とコメントは、日本語 (です・ます調) で書きます。ただし、上流のスキルが後で読み直す文字列は、上流の英語のまま書き、中身の文だけを日本語で書きます。英語のまま残すものは、下の「英語のまま残すもの」の節にあります。
-- Issue への書き込みすべて (作成、コメント、ラベルの変更、本文の書き換え、担当者の割り当て (Claim)、クローズ (Resolve)) の前に、文面や内容をユーザーに見せて確認を取ります。上流の `to-spec`、`to-tickets`、`triage`、`wayfinder` の、確認しない手順よりも、この決まりを優先します。
+- Issue への書き込みすべて (作成、コメント、ラベルの変更、本文の書き換え、関係 (親子とブロック) の設定、担当者の割り当て (Claim)、クローズ (Resolve)) の前に、文面や内容をユーザーに見せて確認を取ります。上流の `to-spec`、`to-tickets`、`triage`、`wayfinder` の、確認しない手順よりも、この決まりを優先します。
 - Issue、PR、ラベルへの書き込みと、リポジトリを指定する `gh -R` と `gh --repo` は、`.claude/settings.json` の `ask` でも止まります。supervisor が文面の確認を取ったあとでも、毎回ユーザーの許可が要ります。対象は次のとおりです。
   - Issue: `gh issue create`、`comment`、`edit`、`close`、`reopen`、`delete`、`transfer`、`lock`、`unlock`、`pin`、`unpin`、`develop`。
   - PR: `gh pr comment`、`edit`、`close`、`reopen`、`review`。`gh pr review` の承認 (`--approve` と `-a`) は、deny が先に止めます。
   - ラベル: `gh label create`、`edit`、`delete`。
   - リポジトリの指定: `gh -R *`、`gh --repo *`。別のリポジトリを指す呼び出しは、上の一覧の形に当たらないことがあるため、まとめて止めます。
-- サブ Issue と依存関係の機能は使いません。親子は、子の Issue の先頭の `Part of #<番号>` の行と、親の本文のタスクリストで表します。ブロックは、子の Issue の先頭の `Blocked by: #<番号>` の行で表します。上流のスキルが「サブ Issue にする」「ネイティブの辺を設定する」と言っても、この書き方に置き換えます。
-  - `gh api` の書き込みは、deny で止まります。
-  - 関係を設定する `gh` のオプションも、deny で止まります。対象は、`gh issue create` の `--parent`、`--blocked-by`、`--blocking` と、`gh issue edit` の `--parent`、`--add-sub-issue`、`--add-blocked-by`、`--add-blocking`、`--remove-parent`、`--remove-sub-issue`、`--remove-blocked-by`、`--remove-blocking` です。`gh issue` のコマンドの文字列のどこかにこれらの文字列があると止まります (`comment` の本文、`list --search` の検索語、`view --jq` の式なども含みます)。本文などに書くときは、別の言い方にします。`--body-file` でファイルや標準入力から渡す本文はコマンドの文字列に入らないので止まりませんが、同じコマンドにヒアドキュメントを書くと、本文がコマンドの文字列に入るので止まります。
-  - `--add-label`、`--remove-label`、`--add-assignee`、`--remove-assignee` など、関係を設定しないオプションは使ってかまいません。
+- 親子は GitHub のサブ Issue、ブロックは GitHub の依存関係で表します。上流のネイティブの手順のとおりです。上流にある、サブ Issue が使えないときの代わり (マップの本文のタスクリストと `Part of` の行) は使いません。設定には `gh issue create` と `gh issue edit` のオプション (`--parent`、`--blocked-by`、`--blocking`、`--add-sub-issue`、`--add-blocked-by`、`--add-blocking`、`--remove-parent`、`--remove-sub-issue`、`--remove-blocked-by`、`--remove-blocking`) を使います。上流にある古い `gh` 向けの `gh api` の手順は使いません (`gh api` の書き込みは deny で止まります)。
+  - 関係の設定も Issue への書き込みなので、確認の対象で、`gh issue create` と `gh issue edit` の `ask` の対象です。
+  - 本文の先頭の `Part of #<番号>` の行 (親子) や `Blocked by: #<番号>` の行 (ブロック) で関係を表した Issue も残っています。親子とブロックのどちらも、関係を読むときは、ネイティブの関係に加えて、本文の行も見ます。新しく関係を付けるときは、本文の行を使わず、ネイティブの関係だけを設定します。
+  - `--add-label`、`--remove-label`、`--add-assignee`、`--remove-assignee` など、関係を設定しないオプションも使ってかまいません。
 - 確認は supervisor がユーザーに取ります。サブエージェント (worker、helper、上流のスキルが起こすサブエージェントを含む) は、Issue への書き込みを自分で行わず、文面を supervisor に返します。wayfinder の Resolve や research のサブエージェントにも当てはまります。
-- Issue の本文 (地図のタスクリスト、`## Decisions so far`、子の `Blocked by:` など) を書き換えるのは supervisor だけです。書き換える直前に `gh issue view` で読み直し、変えるところだけを変えた本文を、ファイルに書かずに標準入力から渡して置き換えます。並行して書き換えません。特に `wayfinder` は、ユーザーが未ブロックのチケットを並行して進めることがあるので、地図の Issue の本文を書き換えるセッションは、同時に 1 つだけにします。ほかのセッションは、読むだけにするか、書き換えを待ちます。コマンドは `docs/agents/issue-tracker.md` にあります。
+- Issue の本文 (`## Decisions so far`、`## Not yet specified` など) を書き換えるのは supervisor だけです。書き換える直前に `gh issue view` で読み直し、変えるところだけを変えた本文を、ファイルに書かずに標準入力から渡して置き換えます。並行して書き換えません。特に `wayfinder` は、ユーザーが未ブロックのチケットを並行して進めることがあるので、地図の Issue の本文を書き換えるセッションは、同時に 1 つだけにします。ほかのセッションは、読むだけにするか、書き換えを待ちます。コマンドは `docs/agents/issue-tracker.md` にあります。
 - ラベルは、上流の名前のまま使います。対応は `docs/agents/triage-labels.md` と `docs/agents/issue-tracker.md` にあります。ラベルがあることが前提です。足りないときの扱いは `docs/agents/triage-labels.md` に従います。
 
 ## 用語集と ADR
@@ -67,7 +67,7 @@
 - `wayfinder` の地図の見出し `## Destination`、`## Notes`、`## Decisions so far`、`## Not yet specified`、`## Out of scope`。子のチケットの `## Question`。名前で参照されます。
 - ラベルの文字列 (`wayfinder:map`、`wayfinder:<type>`、トリアージのラベル)。
 
-`to-spec` の仕様と `to-tickets` の Issue のテンプレートの見出し (`## Problem Statement`、`## What to build` など) は、使うスキルのどれも読み取りません。日本語の見出しでかまいません。ただし、`to-tickets` の `## Parent` と `## Blocked by` の節は使わず、子の本文の先頭の `Part of` と `Blocked by:` の行で表します (`docs/agents/issue-tracker.md`)。
+`to-spec` の仕様と `to-tickets` の Issue のテンプレートの見出し (`## Problem Statement`、`## What to build` など) は、使うスキルのどれも読み取りません。日本語の見出しでかまいません。ただし、`to-tickets` の `## Parent` の節は、元の Issue があるときだけ書き、サブ Issue の関係も設定します。`## Blocked by` の節は、ブロックをネイティブの依存関係で設定したときは省きます (`docs/agents/issue-tracker.md`)。
 
 ## バグの修正と試作
 

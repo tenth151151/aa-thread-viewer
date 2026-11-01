@@ -5,7 +5,7 @@
 ## 決まり
 
 - Issue、PR、ラベルに書き込む前に、必ず `.claude/rules/upstream-skills.md` の「Issue」の節に従います。書き込みの確認、サブエージェントの扱い、本文を書き換える人、本文の言語、英語のまま残す文字列は、そこに書いてあります。
-- サブ Issue と依存関係の機能は使いません。親子とブロックの関係の表し方は、`.claude/rules/upstream-skills.md` の「Issue」の節に書いてあります。書き方の例は、下の「Wayfinding operations」にあります。
+- 親子は GitHub のサブ Issue、ブロックは GitHub の依存関係で表します。使うオプションと、本文の行で関係を表した Issue の扱いは、`.claude/rules/upstream-skills.md` の「Issue」の節に書いてあります。操作は、下の「操作」と「Wayfinding operations」にあります。
 
 ## 操作
 
@@ -14,6 +14,10 @@
 - **Issue を一覧する**: `gh issue list --state open --limit 200 --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`。`--label` や `--state` で絞り込みます。
 - **Issue にコメントする**: `gh issue comment <number> --body "<本文>"`
 - **本文を書き換える**: 直前に `gh issue view <number> --json body --jq .body` で読み直し、変えるところだけを変えた本文を、ファイルに書かずに標準入力から渡して、`gh issue edit <number> --body-file -` で置き換えます。
+- **サブ Issue にする**: `gh issue create --parent <親> ...`、または作ったあとに `gh issue edit <親> --add-sub-issue <子>`。外すときは `gh issue edit <親> --remove-sub-issue <子>`。
+- **ブロックを設定する**: `gh issue create --blocked-by <n>,<n> ...`、または `gh issue edit <子> --add-blocked-by <ブロッカー>`。外すときは `--remove-blocked-by`。`--blocking` と `--add-blocking` は、向きが逆です。すべてのブロッカーが閉じたとき、そのチケットはブロックされていない状態です。
+- **関係を読む**: `gh issue view <number> --json parent,subIssues,blockedBy,blocking`。`subIssues`、`blockedBy`、`blocking` は `nodes` と `totalCount` を持ち、`parent` は親がないとき `null` です。gh 2.102.0 は、ページングをせずに `subIssues` を 100 件、`blockedBy` と `blocking` を 50 件までしか取りません。`totalCount` と `nodes` の件数が違うときは、上限を超えていて、全部は返っていません。
+- **open のブロッカーを数える**: `gh issue view <number> --json blockedBy --jq '[.blockedBy.nodes[] | select(.state == "OPEN")] | length'`。閉じたブロッカーも `nodes` に入るので、`state` で絞ります。0 のとき、着手できます。本文の先頭の `Blocked by: #<番号>` の行で関係を表した Issue は、本文の行の番号も見ます。
 - **ラベルを付ける、外す**: `gh issue edit <number> --add-label "<ラベル>"` / `--remove-label "<ラベル>"`
 - **閉じる**: `gh issue comment <number> --body "<本文>"` で説明を書いてから、`gh issue close <number>` を実行します。閉じ済みの Issue に `gh issue close --comment` を使うと、コメントが捨てられるのに終了コードが 0 になるためです。
 
@@ -41,14 +45,13 @@ GitHub の Issue を作ります。
 
 ## Wayfinding operations
 
-`/wayfinder` が使います。**マップ**は 1 つの Issue で、**子**の Issue がチケットです。このプロジェクトでは、親子とブロックの関係を Issue の本文の行で表すと決めているため、サブ Issue と依存関係の機能は使いません (`.claude/rules/upstream-skills.md` の「Issue」の節)。
+`/wayfinder` が使います。**マップ**は 1 つの Issue で、**子**の Issue がチケットです。親子は GitHub のサブ Issue、ブロックは GitHub の依存関係で表します (`.claude/rules/upstream-skills.md` の「Issue」の節)。
 
 - **Map**: ラベル `wayfinder:map` を付けた 1 つの Issue です。本文は、`## Destination`、`## Notes`、`## Decisions so far`、`## Not yet specified`、`## Out of scope` の見出しで書きます。`gh issue create --label wayfinder:map` で作ります。ラベルは `wayfinder:map` だけで、`ready-for-agent` などのトリアージのラベルは付けません。
-- **Child ticket**: マップの本文のタスクリストに子を足し、子の本文の先頭に `Part of #<map>` を書きます。タスクリストは、マップの `## Notes` の中に `### Tickets` の小見出しを置き、その下に `- [ ] #<n>` の形で並べます。このプロジェクトでは親子の関係を本文の行で表すと決めているため、open のチケットを地図に載せない上流の方針から外れて、このタスクリストを置きます。`## Notes` のほかの内容とは混ぜず、`### Tickets` の下だけをチケットの一覧にします。ラベルは `wayfinder:<type>` (`research`、`prototype`、`grilling`、`task`) だけで、トリアージのラベルは付けません。引き受けたチケットは、作業する開発者に assign します。
-- **Blocking**: 子の本文の先頭に、`Blocked by: #<n>, #<n>` の行を書きます。すべてのブロッカーが閉じたとき、そのチケットはブロックされていない状態です。
-- **子の本文の先頭**: wayfinder の子の Issue では、1 行目に `Part of #<map>`、2 行目に `Blocked by: #<n>, #<n>` の順で書きます。ブロッカーがないときは、2 行目を書きません。`/to-tickets` の Issue のテンプレートの `## Parent` と `## Blocked by` の節は使わず、この 2 行に置き換えます。
-- **Frontier query**: `gh issue view <map> --json body --jq .body` でマップの本文を読み、`### Tickets` のタスクリストの `#<n>` を拾います。次に、`gh issue list --state open --limit 200 --json number,title,body,assignees,labels` で open の Issue を取ります。タスクリストにあり、open で、担当者 (`assignees`) がいないものを残し、本文の `Blocked by:` の行の番号のうち、open の一覧にあるものが 1 つでもあるものを除きます (閉じたブロッカーは open の一覧に出ないので、残ってよいです)。タスクリストの順で、最初のものを選びます。
+- **Child ticket**: マップのサブ Issue にします (上の「サブ Issue にする」)。ラベルは `wayfinder:<type>` (`research`、`prototype`、`grilling`、`task`) だけで、トリアージのラベルは付けません。引き受けたチケットは、作業する開発者に assign します。
+- **Blocking**: 上の「ブロックを設定する」の依存関係です。
+- **Frontier query**: `gh issue view <map> --json subIssues --jq '[.subIssues.nodes[].number]'` でマップのサブ Issue の番号を取ります。次に、`gh issue list --state open --limit 200 --json number,title,body,assignees,labels,blockedBy` で open の Issue を取ります。サブ Issue にあり、open で、担当者 (`assignees`) がなく、open のブロッカー (`blockedBy.nodes` の `state` が `OPEN`) がないものを残します。本文の `Blocked by:` の行の番号が open の一覧にあるものも、ブロックされているとして除きます (閉じたブロッカーは open の一覧に出ません)。`gh issue list` の結果は `subIssues.nodes` の順ではないので、`subIssues.nodes` の番号の順に、残った Issue を見て、最初のものを選びます。
 - **Claim**: `gh issue edit <n> --add-assignee @me`。セッションで最初の書き込みです。
-- **Resolve**: `gh issue comment <n> --body "<answer>"`、`gh issue close <n>` の順に実行し、マップの `## Decisions so far` に、文脈へのポインタ (gist とリンク) を足します。あわせて、マップの `### Tickets` の該当のチェックボックスにも印を付けます (`- [x] #<n>`)。これらはマップの本文の書き換えなので、`.claude/rules/upstream-skills.md` のとおり、supervisor が文面の確認を取って行います。
+- **Resolve**: `gh issue comment <n> --body "<answer>"`、`gh issue close <n>` の順に実行し、マップの `## Decisions so far` に、文脈へのポインタ (gist とリンク) を足します。マップの本文の書き換えなので、`.claude/rules/upstream-skills.md` のとおり、supervisor が文面の確認を取って行います。
 
-`/to-tickets` が wayfinder のマップのチケットとして複数の Issue を公開するときも、上の Child ticket と Blocking の書き方を使い、トリアージのラベルは付けません (`to-tickets` の既定の `ready-for-agent` を付けません)。wayfinder と関係なく `/to-tickets` で作る Issue のラベルは、上流のとおりです。Issue は、ブロッカーを先に、依存の順に作ります。
+`/to-tickets` が wayfinder のマップのチケットとして複数の Issue を公開するときも、上の Child ticket と Blocking の書き方 (サブ Issue と依存関係) を使い、トリアージのラベルは付けません (`to-tickets` の既定の `ready-for-agent` を付けません)。wayfinder と関係なく `/to-tickets` で作る Issue のラベルは、上流のとおりです。Issue は、ブロッカーを先に、依存の順に作ります。
