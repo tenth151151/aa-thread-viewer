@@ -4,7 +4,7 @@
 
 ## 入れ方
 
-- プラグインは `mattpocock-skills@mattpocock` で、マーケットプレイスの版はタグ `v1.3.1` です。設定は `.claude/settings.json` の `extraKnownMarketplaces` と `enabledPlugins` にあります。
+- プラグインは `mattpocock-skills@mattpocock` で、マーケットプレイスの版はタグ `v1.3.2` です。設定は `.claude/settings.json` の `extraKnownMarketplaces` と `enabledPlugins` にあります。
 - `autoUpdate` は使いません (`false`)。タグで固定して、読んだ内容が知らないうちに変わりにくくするためです。タグは付け替えられることがあるので、完全ではありません。
 - コンテナの作成時には、`.devcontainer/bin/post-create.sh` が同じ版を `--scope project` でインストールします。Dockerfile で `jq` を入れておらず、ベースイメージにあるとは限らないため、版を設定から読まず、スクリプトの `UPSTREAM_SKILLS_REF` に書いています。
 - 版を上げるときは、`.claude/settings.json` の `ref` と、`.devcontainer/bin/post-create.sh` の `UPSTREAM_SKILLS_REF` と、`README.md` の版を変える PR にします。上流の差分を読み、このファイルと `docs/agents/` の内容が、新しい版に合うかを確かめます。
@@ -43,7 +43,10 @@
   - PR: `gh pr comment`、`edit`、`close`、`reopen`、`review`。`gh pr review` の承認 (`--approve` と `-a`) は、deny が先に止めます。
   - ラベル: `gh label create`、`edit`、`delete`。
   - リポジトリの指定: `gh -R *`、`gh --repo *`。別のリポジトリを指す呼び出しは、上の一覧の形に当たらないことがあるため、まとめて止めます。
-- `gh api` の書き込み (サブ Issue や依存関係の登録) は、deny で止まります。親子の関係は、親の本文のタスクリストと、子の Issue の先頭の `Part of #<番号>` の行で表します。ブロックの関係は、子の Issue の先頭の `Blocked by: #<番号>` の行で表します。
+- サブ Issue と依存関係の機能は使いません。親子は、子の Issue の先頭の `Part of #<番号>` の行と、親の本文のタスクリストで表します。ブロックは、子の Issue の先頭の `Blocked by: #<番号>` の行で表します。上流のスキルが「サブ Issue にする」「ネイティブの辺を設定する」と言っても、この書き方に置き換えます。
+  - `gh api` の書き込みは、deny で止まります。
+  - 関係を設定する `gh` のオプションも、deny で止まります。対象は、`gh issue create` の `--parent`、`--blocked-by`、`--blocking` と、`gh issue edit` の `--parent`、`--add-sub-issue`、`--add-blocked-by`、`--add-blocking`、`--remove-parent`、`--remove-sub-issue`、`--remove-blocked-by`、`--remove-blocking` です。`gh issue` のコマンドの文字列のどこかにこれらの文字列があると止まります (`comment` の本文、`list --search` の検索語、`view --jq` の式なども含みます)。本文などに書くときは、別の言い方にします。`--body-file` でファイルや標準入力から渡す本文はコマンドの文字列に入らないので止まりませんが、同じコマンドにヒアドキュメントを書くと、本文がコマンドの文字列に入るので止まります。
+  - `--add-label`、`--remove-label`、`--add-assignee`、`--remove-assignee` など、関係を設定しないオプションは使ってかまいません。
 - 確認は supervisor がユーザーに取ります。サブエージェント (worker、helper、上流のスキルが起こすサブエージェントを含む) は、Issue への書き込みを自分で行わず、文面を supervisor に返します。wayfinder の Resolve や research のサブエージェントにも当てはまります。
 - Issue の本文 (地図のタスクリスト、`## Decisions so far`、子の `Blocked by:` など) を書き換えるのは supervisor だけです。書き換える直前に `gh issue view` で読み直し、変えるところだけを変えた本文を、ファイルに書かずに標準入力から渡して置き換えます。並行して書き換えません。特に `wayfinder` は、ユーザーが未ブロックのチケットを並行して進めることがあるので、地図の Issue の本文を書き換えるセッションは、同時に 1 つだけにします。ほかのセッションは、読むだけにするか、書き換えを待ちます。コマンドは `docs/agents/issue-tracker.md` にあります。
 - ラベルは、上流の名前のまま使います。対応は `docs/agents/triage-labels.md` と `docs/agents/issue-tracker.md` にあります。ラベルがあることが前提です。足りないときの扱いは `docs/agents/triage-labels.md` に従います。

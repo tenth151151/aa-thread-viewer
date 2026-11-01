@@ -111,7 +111,7 @@ log "インストールが完了しました。バージョン: $(claude --versi
 #     .claude/settings.json の extraKnownMarketplaces の ref と同じ値にする。
 #     版を上げるときは、ここも直す (.claude/rules/upstream-skills.md)。
 # -------------------------------------------------------------
-readonly UPSTREAM_SKILLS_REF="v1.3.1"
+readonly UPSTREAM_SKILLS_REF="v1.3.2"
 # marketplace add は git clone を使うので、ネットワークが不安定だと止まったまま進まないおそれがある。
 # 失敗してもセットアップを止めない方針に合わせ、時間切れも失敗として扱う。
 # 余裕を見て、コマンドごとに 120 秒にする。

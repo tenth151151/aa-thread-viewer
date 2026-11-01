@@ -23,7 +23,7 @@
       "source": {
         "source": "github",
         "repo": "mattpocock/skills",
-        "ref": "v1.3.1"
+        "ref": "v1.3.2"
       },
       "autoUpdate": false
     }
@@ -113,7 +113,17 @@
       "Bash(gh api *-X*DELETE*)",
       "Bash(gh api *--method*DELETE*)",
       "Bash(gh api *-X*delete*)",
-      "Bash(gh api *--method*delete*)"
+      "Bash(gh api *--method*delete*)",
+      "Bash(gh issue *--parent*)",
+      "Bash(gh issue *--blocked-by*)",
+      "Bash(gh issue *--blocking*)",
+      "Bash(gh issue *--add-sub-issue*)",
+      "Bash(gh issue *--add-blocked-by*)",
+      "Bash(gh issue *--add-blocking*)",
+      "Bash(gh issue *--remove-parent*)",
+      "Bash(gh issue *--remove-sub-issue*)",
+      "Bash(gh issue *--remove-blocked-by*)",
+      "Bash(gh issue *--remove-blocking*)"
     ]
   },
   "attribution": {
