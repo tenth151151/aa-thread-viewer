@@ -1,6 +1,6 @@
 ---
 name: pre-pr-check
-description: ブランチを push / PR 作成する前に、差分をまとめて確認する手順です。`/squash-commits` より前に使います。ユーザーが「PR 前の確認をして」「PR を出す前にチェックして」と言ったときにも使います。
+description: ブランチを push / PR 作成する前に、差分をまとめて確認する手順です。`/squash-commits` より前に使います。PR を作らない使い捨てのブランチ (`prototype` の試作と `research/<名前>`) には使いません。ユーザーが「PR 前の確認をして」「PR を出す前にチェックして」と言ったときにも使います。
 ---
 
 # PR を作る前の確認
