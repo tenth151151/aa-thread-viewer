@@ -4,7 +4,7 @@
 
 ## 入れ方
 
-- プラグインは `mattpocock-skills@mattpocock` で、マーケットプレイスの版はタグ `v1.3.1` です。設定は `.claude/settings.json` の `extraKnownMarketplaces` と `enabledPlugins` にあります。
+- プラグインは `mattpocock-skills@mattpocock` で、マーケットプレイスの版はタグ `v1.3.2` です。設定は `.claude/settings.json` の `extraKnownMarketplaces` と `enabledPlugins` にあります。
 - `autoUpdate` は使いません (`false`)。タグで固定して、読んだ内容が知らないうちに変わりにくくするためです。タグは付け替えられることがあるので、完全ではありません。
 - コンテナの作成時には、`.devcontainer/bin/post-create.sh` が同じ版を `--scope project` でインストールします。Dockerfile で `jq` を入れておらず、ベースイメージにあるとは限らないため、版を設定から読まず、スクリプトの `UPSTREAM_SKILLS_REF` に書いています。
 - 版を上げるときは、`.claude/settings.json` の `ref` と、`.devcontainer/bin/post-create.sh` の `UPSTREAM_SKILLS_REF` と、`README.md` の版を変える PR にします。上流の差分を読み、このファイルと `docs/agents/` の内容が、新しい版に合うかを確かめます。
@@ -37,15 +37,18 @@
 ## Issue
 
 - 本文とコメントは、日本語 (です・ます調) で書きます。ただし、上流のスキルが後で読み直す文字列は、上流の英語のまま書き、中身の文だけを日本語で書きます。英語のまま残すものは、下の「英語のまま残すもの」の節にあります。
-- Issue への書き込みすべて (作成、コメント、ラベルの変更、本文の書き換え、担当者の割り当て (Claim)、クローズ (Resolve)) の前に、文面や内容をユーザーに見せて確認を取ります。上流の `to-spec`、`to-tickets`、`triage`、`wayfinder` の、確認しない手順よりも、この決まりを優先します。
+- Issue への書き込みすべて (作成、コメント、ラベルの変更、本文の書き換え、関係 (親子とブロック) の設定、担当者の割り当て (Claim)、クローズ (Resolve)) の前に、文面や内容をユーザーに見せて確認を取ります。上流の `to-spec`、`to-tickets`、`triage`、`wayfinder` の、確認しない手順よりも、この決まりを優先します。
 - Issue、PR、ラベルへの書き込みと、リポジトリを指定する `gh -R` と `gh --repo` は、`.claude/settings.json` の `ask` でも止まります。supervisor が文面の確認を取ったあとでも、毎回ユーザーの許可が要ります。対象は次のとおりです。
   - Issue: `gh issue create`、`comment`、`edit`、`close`、`reopen`、`delete`、`transfer`、`lock`、`unlock`、`pin`、`unpin`、`develop`。
   - PR: `gh pr comment`、`edit`、`close`、`reopen`、`review`。`gh pr review` の承認 (`--approve` と `-a`) は、deny が先に止めます。
   - ラベル: `gh label create`、`edit`、`delete`。
   - リポジトリの指定: `gh -R *`、`gh --repo *`。別のリポジトリを指す呼び出しは、上の一覧の形に当たらないことがあるため、まとめて止めます。
-- `gh api` の書き込み (サブ Issue や依存関係の登録) は、deny で止まります。親子の関係は、親の本文のタスクリストと、子の Issue の先頭の `Part of #<番号>` の行で表します。ブロックの関係は、子の Issue の先頭の `Blocked by: #<番号>` の行で表します。
+- 親子は GitHub のサブ Issue、ブロックは GitHub の依存関係で表します。上流のネイティブの手順のとおりです。上流にある、サブ Issue が使えないときの代わり (マップの本文のタスクリストと `Part of` の行) は使いません。設定には `gh issue create` と `gh issue edit` のオプション (`--parent`、`--blocked-by`、`--blocking`、`--add-sub-issue`、`--add-blocked-by`、`--add-blocking`、`--remove-parent`、`--remove-sub-issue`、`--remove-blocked-by`、`--remove-blocking`) を使います。上流にある古い `gh` 向けの `gh api` の手順は使いません (`gh api` の書き込みは deny で止まります)。
+  - 関係の設定も Issue への書き込みなので、確認の対象で、`gh issue create` と `gh issue edit` の `ask` の対象です。
+  - 本文の先頭の `Part of #<番号>` の行 (親子) や `Blocked by: #<番号>` の行 (ブロック) で関係を表した Issue も残っています。親子とブロックのどちらも、関係を読むときは、ネイティブの関係に加えて、本文の行も見ます。新しく関係を付けるときは、本文の行を使わず、ネイティブの関係だけを設定します。
+  - `--add-label`、`--remove-label`、`--add-assignee`、`--remove-assignee` など、関係を設定しないオプションも使ってかまいません。
 - 確認は supervisor がユーザーに取ります。サブエージェント (worker、helper、上流のスキルが起こすサブエージェントを含む) は、Issue への書き込みを自分で行わず、文面を supervisor に返します。wayfinder の Resolve や research のサブエージェントにも当てはまります。
-- Issue の本文 (地図のタスクリスト、`## Decisions so far`、子の `Blocked by:` など) を書き換えるのは supervisor だけです。書き換える直前に `gh issue view` で読み直し、変えるところだけを変えた本文を、ファイルに書かずに標準入力から渡して置き換えます。並行して書き換えません。特に `wayfinder` は、ユーザーが未ブロックのチケットを並行して進めることがあるので、地図の Issue の本文を書き換えるセッションは、同時に 1 つだけにします。ほかのセッションは、読むだけにするか、書き換えを待ちます。コマンドは `docs/agents/issue-tracker.md` にあります。
+- Issue の本文 (`## Decisions so far`、`## Not yet specified` など) を書き換えるのは supervisor だけです。書き換える直前に `gh issue view` で読み直し、変えるところだけを変えた本文を、ファイルに書かずに標準入力から渡して置き換えます。並行して書き換えません。特に `wayfinder` は、ユーザーが未ブロックのチケットを並行して進めることがあるので、地図の Issue の本文を書き換えるセッションは、同時に 1 つだけにします。ほかのセッションは、読むだけにするか、書き換えを待ちます。コマンドは `docs/agents/issue-tracker.md` にあります。
 - ラベルは、上流の名前のまま使います。対応は `docs/agents/triage-labels.md` と `docs/agents/issue-tracker.md` にあります。ラベルがあることが前提です。足りないときの扱いは `docs/agents/triage-labels.md` に従います。
 
 ## 用語集と ADR
@@ -64,18 +67,43 @@
 - `wayfinder` の地図の見出し `## Destination`、`## Notes`、`## Decisions so far`、`## Not yet specified`、`## Out of scope`。子のチケットの `## Question`。名前で参照されます。
 - ラベルの文字列 (`wayfinder:map`、`wayfinder:<type>`、トリアージのラベル)。
 
-`to-spec` の仕様と `to-tickets` の Issue のテンプレートの見出し (`## Problem Statement`、`## What to build` など) は、使うスキルのどれも読み取りません。日本語の見出しでかまいません。ただし、`to-tickets` の `## Parent` と `## Blocked by` の節は使わず、子の本文の先頭の `Part of` と `Blocked by:` の行で表します (`docs/agents/issue-tracker.md`)。
+`to-spec` の仕様と `to-tickets` の Issue のテンプレートの見出し (`## Problem Statement`、`## What to build` など) は、使うスキルのどれも読み取りません。日本語の見出しでかまいません。ただし、`to-tickets` の `## Parent` の節は、元の Issue があるときだけ書き、サブ Issue の関係も設定します。`## Blocked by` の節は、ブロックをネイティブの依存関係で設定したときは省きます (`docs/agents/issue-tracker.md`)。
 
 ## バグの修正と試作
 
 - `diagnosing-bugs` を使うときも、`.claude/rules/tdd.md` のとおり、バグを再現するテストを先に書きます。上流には、適切な境目がないときは回帰テストを省ける書き方がありますが、このプロジェクトでは省きません。
-- `prototype` の試作は、`app/src/main` と `app/src/test` に置きません。使い捨てのブランチ (helper が作ります) の中だけで行い、main にマージしません。上流の、試作をモジュールの隣に置くことと、確かめた内容を本物のコードに取り込むことは、このプロジェクトでは行いません。確かめた結果は、TDD で作り直します。
+- `prototype` の試作は、使い捨てのブランチの中だけで行い、main にマージしません。ブランチは、helper が、ユーザーの確認を取ってから、main から切ります。
+  - ブランチの中では、上流のとおり、試作を使う場所 (モジュールや画面) の隣に置いてかまいません (`app/src/main` も可)。試作だと分かる名前にします。新しいトップレベルの構成は作りません。
+  - 終わったら、試作を使い捨てのブランチにコミットし (helper が、ユーザーの確認を取ってから行います)、そのブランチを push したあとで (「使い捨てのブランチ」の節のとおりです)、ブランチ名とコミットの SHA のポインタと、答え (結論と、それで決まった問い) を、実装の Issue に残します。Issue への書き込みは、「Issue」の節のとおり、supervisor がユーザーの確認を取ってから行います。
+  - 確かめた結論を本物のコードに入れるときは、試作のコードを持ち込まず、main から切ったブランチで、TDD で作り直します。main に残すのは、確かめた結論だけです。
+  - 試作のコードは使い捨てなので、`.claude/rules/tdd.md` の、テストを先に書く決まりの対象外です。ただし、警告を抑えない決まりと、カバレッジの基準値と除外を緩めない決まりは外れません (`tdd.md` の「例外」の節と同じ扱いです)。
+  - `.claude/rules/architecture.md` で「ユーザーに相談する」とされている点 (Hilt に移る目安、最初の ViewModel の作り方など) は、試作でも変わりません。
 
 ## 編集とコミット
 
 - supervisor は編集できません。上流のスキルが作ったり書き換えたりするファイル (`GLOSSARY.md`、`docs/adr/`、`.out-of-scope/` など) は、すべて worker に頼み、reviewer を通します。
-- ブランチを作るのと切り替えるのは、supervisor の指示で helper だけが、ユーザーの確認を取ってから行います。ほかのサブエージェント (worker、reviewer、上流のスキルが起こすものを含む) は、ブランチを作らず、切り替えず、コミットしません。`wayfinder` の調査の結果 (`research/<名前>` ブランチを使う手順) も、ファイルや文面として supervisor に返します。
-- コミットは、supervisor の指示で helper が、ユーザーの確認を取ってから行います。`prototype` の使い捨てのブランチも同じです。
+- ブランチを作るのと切り替えるのは、supervisor の指示で helper だけが、ユーザーの確認を取ってから行います。ほかのサブエージェント (worker、reviewer、上流のスキルが起こすものを含む) は、ブランチを作らず、切り替えず、コミットしません。
+- コミットは、supervisor の指示で helper が、ユーザーの確認を取ってから行います。`prototype` の使い捨てのブランチと、`research/<名前>` のブランチも同じです。
+
+## 使い捨てのブランチ
+
+`prototype` の試作のブランチと、`wayfinder` の `research/<名前>` のブランチは、PR を作らず、main に入れません。
+
+- `CLAUDE.md` の、push や PR 作成の前の `/pre-pr-check` と `/squash-commits` は、これらのブランチには行いません。
+- これらのブランチは、Issue にポインタを残す前に push します。push は、supervisor がユーザーの確認を取ってから行います。
+- Issue に残すポインタは、ブランチ名とコミットの SHA です。ブランチは、あとで消えたり進んだりするためです。
+- CI (`.github/workflows/ci.yml`) は、main を対象にした PR と、main への push でしか動かないので、これらのブランチの push では走りません。
+- `/post-merge-cleanup` は main に入ったブランチだけを消すので、これらのブランチは残ります。
+
+### research の結果
+
+- research のサブエージェントは、ブランチを作らず、コミットしません。調べた結果を、リポジトリの作業ツリーの中の 1 つの Markdown のファイルに書き、supervisor に返します。置き場所は、`research` スキルのとおり、リポジトリの慣習に合わせ、なければ適当な場所に置いてどこかを伝えます。
+- supervisor の指示で、helper が、ユーザーの確認を取ってから、main から `research/<名前>` のブランチを切り、そのファイルをコミットします。
+  - コミットするのは、research のファイルだけです。そのファイルだけを `git add` し、`git add -A`、`git add .`、`commit -a` は使いません。作業ツリーのほかの変更は混ぜません。
+  - ほかの変更があって切り替えに失敗するときや、ほかの変更が混ざりそうなときは、止めて supervisor に伝えます。supervisor がユーザーに確認します。
+  - research が複数あるときは、1 件ごとに 1 つのブランチにします。
+  - コミットしたら、helper は元のブランチに戻ります。
+- ブランチを push したあとで (「使い捨てのブランチ」の節のとおりです)、チケットに、ブランチ名とコミットの SHA のポインタを残します。Issue への書き込みなので、「Issue」の節のとおり、supervisor がユーザーの確認を取ってから行います。
 
 ## 文体の決まりの範囲
 

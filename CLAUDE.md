@@ -10,6 +10,7 @@
 ## PR の作成
 
 - push や PR 作成の前に、`/pre-pr-check` スキル (`.claude/skills/pre-pr-check/SKILL.md`) で差分を確認する。`/squash-commits` より前に行う。
+- PR を作らない使い捨てのブランチ (`prototype` の試作と `research/<名前>`) は、`/pre-pr-check` と `/squash-commits` の対象外とする。詳細は `.claude/rules/upstream-skills.md` の「使い捨てのブランチ」を見る。
 - PR がマージされたあとの後片付け (main の更新、ブランチとバックアップのタグの削除) は、`/post-merge-cleanup` スキル (`.claude/skills/post-merge-cleanup/SKILL.md`) に従う。
 
 ## Agent skills

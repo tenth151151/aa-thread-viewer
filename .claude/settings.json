@@ -23,7 +23,7 @@
       "source": {
         "source": "github",
         "repo": "mattpocock/skills",
-        "ref": "v1.3.1"
+        "ref": "v1.3.2"
       },
       "autoUpdate": false
     }

@@ -20,7 +20,7 @@ bash bin/check-fullwidth-parens.sh
 上流の `mattpocock/skills` は、プロジェクトの設定 (`.claude/settings.json` の `extraKnownMarketplaces` と `enabledPlugins`) で、プラグインとして入れています。このプラグインは、マーケットプレイスの中の相対パスのプラグインです。Claude Code は、起動したときにインストールの記録 (`~/.claude/plugins/installed_plugins.json`) とキャッシュだけを読み、マーケットプレイスの確認は起動のあとに背景で行います。インストールの記録がない間は、起動しただけではスキルが出ず、セッションごとに `/reload-plugins` が要ります。そのため、`.devcontainer/bin/post-create.sh` が、コンテナの作成時に `claude plugin marketplace add`、`claude plugin install`、`claude plugin update` を `--scope project` で実行し、記録を作っておきます。記録は `~/.claude` (ボリューム) に残ります。このインストールに失敗してもセットアップは止まりません。手で入れるときは、リポジトリのフォルダで次のコマンドを実行します。
 
 ```bash
-claude plugin marketplace add mattpocock/skills#v1.3.1 --scope project
+claude plugin marketplace add mattpocock/skills#v1.3.2 --scope project
 claude plugin install mattpocock-skills@mattpocock --scope project
 claude plugin update mattpocock-skills@mattpocock --scope project
 ```
