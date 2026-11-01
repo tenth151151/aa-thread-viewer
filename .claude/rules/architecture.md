@@ -134,27 +134,32 @@ UI 層とデータ層の 2 層で作ります。
 
 機能ごとに分け、共通の `data/` を置きます (architecture-samples と同じ形)。`:app` の 1 モジュールのまま、パッケージで分けます。
 
-- 機能のパッケージに、Screen、ViewModel、UiState をまとめます。
+- 機能のパッケージに、Screen、ViewModel、UiState と、画面のキー (`HomeKey` など。Navigation 3 の `NavKey`) をまとめます。
 - Repository とデータ源は、`data/` に置きます。dat を取得したり保存したりするデータ源と Repository も `data/` に置き、`dat/` の解析を使います。
 - `dat/` には、dat 形式の解析 (文字列から `Post` などを作る、取得や保存をしないコード) だけを置きます。
 - `dat/` と `ui/theme/` は、共通として今の場所に置きます。
-- `MainActivity` と、将来の `Application`、`AppContainer` は、ルートのパッケージに置きます。
+- `MainActivity` と、`NavDisplay` を出す `AatvNavDisplay`、将来の `Application`、`AppContainer` は、ルートのパッケージに置きます。
 
 ルートのパッケージは `io.github.tenth151151.aathreadviewer` で、ファイルは `app/src/main/kotlin/` の下に置きます。次は、ホーム画面に ViewModel と Repository を足したあとの例です。`(未作成)` を付けたファイルは、今はありません。
 
 ```text
 io/github/tenth151151/aathreadviewer/
 ├── MainActivity.kt
+├── AatvNavDisplay.kt       (NavDisplay と、画面のキーごとの画面の対応)
 ├── AatvApplication.kt      (未作成。AppContainer を持つ)
 ├── AppContainer.kt         (未作成。最初の Repository を作るときに作る)
 ├── dat/                    (dat 形式の解析。取得や保存はしない)
 ├── ui/theme/               (共通のテーマ)
 ├── data/                   (未作成)
 │   └── ThreadRepository.kt (interface。実装も data/ に置く)
-└── home/
-    ├── HomeScreen.kt
-    ├── HomeViewModel.kt    (未作成)
-    └── HomeUiState.kt      (未作成)
+├── home/
+│   ├── HomeKey.kt
+│   ├── HomeScreen.kt
+│   ├── HomeViewModel.kt    (未作成)
+│   └── HomeUiState.kt      (未作成)
+└── thread/
+    ├── ThreadKey.kt
+    └── ThreadScreen.kt
 ```
 
 `Application` のクラス名は例であり、作るときに決めます。
