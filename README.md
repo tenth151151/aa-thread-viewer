@@ -15,6 +15,66 @@ bash bin/check-fullwidth-parens.sh
 
 カバレッジは Kover で測ります。数字とレポートは、debug と release を合わせた全体のものです。「CI と同じ確認」のコマンドは、行のカバレッジを標準出力に出し、レポートを `app/build/reports/kover/` に作ります。HTML は `html/index.html`、XML は `report.xml` です。JVM の単体テストだけで測るので、`@Composable` の関数 (`@Preview` の関数を含みます) と、Activity と Application のクラスは、測る対象から外しています。行のカバレッジが 80% を下回ると、`check` が失敗します。基準値と除外は `app/build.gradle.kts` の `kover` に書いています。CI は、行のカバレッジをジョブのサマリーに書き、レポートをアーティファクト `coverage` に上げます。
 
+### エミュレータ (Windows)
+
+コンテナには KVM (`/dev/kvm`) がないので、エミュレータはホストの Windows で動かし、コンテナの `adb` からは、ホストの adb server を通して使います。
+
+前提は、ホストの Windows に Android Studio を入れ、Android SDK を入れてあることです。SDK Manager の SDK Tools で、Android SDK Command-line Tools (latest)、Android Emulator、Android SDK Platform-Tools を入れておきます。SDK の場所は、環境変数 `ANDROID_HOME` か、Android Studio の既定の場所 (`%LOCALAPPDATA%\Android\Sdk`) から探します。
+
+ホストの Windows で、リポジトリのフォルダから次のバッチファイルを実行します。本体は PowerShell のスクリプト (`bin\windows\setup-emulator.ps1`) で、バッチファイルはそれを呼ぶだけの入口です。
+
+```bat
+bin\windows\setup-emulator.bat
+bin\windows\setup-emulator.bat 37.0 my-avd
+```
+
+引数は 2 つで、どちらも省略できます。1 つ目はシステムイメージの API の版で、既定は、`versions.properties` の `ANDROID_PLATFORM` (`android-<版>`) の版です。`system-images;android-<版>;google_apis;x86_64` を使います。2 つ目は AVD の名前で、既定は `aatv-api-<版>` です。スクリプトは、次のことをこの順で行います。
+
+1. システムイメージがなければ入れます。Android SDK のライセンスに同意していないときは、`sdkmanager` が同意を尋ねます。
+2. AVD がなければ作ります。すでにあるシステムイメージと AVD は、作り直しません。
+3. adb server が、すべての口 (IPv4 の `0.0.0.0` か IPv6 の `[::]`) で待ち受けていなければ、待ち受ける形 (`adb -a`) で起動し直します。すでに待ち受けているときは、起動し直さずにそのまま使います。
+4. 指定した AVD のエミュレータが動いていなければ、空いているポートで起動します。起動の完了は、そのエミュレータの serial (`emulator-<ポート>`) を指定して待ちます。別の AVD のエミュレータが動いていても、指定した AVD は別に起動します。
+
+`adb -a start-server` で待ち受けにならないときは、`adb -a nodaemon server` を、最小化した別のウィンドウ (タイトルは `adb server`) で動かします。このウィンドウを閉じると adb server が止まるので、エミュレータを使っている間は閉じないでください。
+
+`/?`、`-h`、`--help` を付けると、使い方を表示します。`.ps1` を PowerShell から直接実行するときは、ExecutionPolicy で止まることがあるので、`powershell -NoProfile -ExecutionPolicy Bypass -File bin\windows\setup-emulator.ps1` のように指定します。PowerShell のセッションから版を渡すときは、`.\setup-emulator.ps1 '37.0'` のように引用符で囲みます。囲まずに `37.0` と書くと数値になって `37` に変わるため、スクリプトはエラーで止まります。
+
+2 回目以降の実行では、システムイメージと AVD は作らず、指定した AVD のエミュレータが動いていれば、そのまま使います。
+
+コンテナで使うには、`.devcontainer/.env` で `ADB_SERVER_SOCKET` を有効にし、値の `<Windows のアドレス>` を Windows のアドレスに書き換えて、コンテナを作り直します (VS Code では `Dev Containers: Rebuild Container`)。NAT モードの WSL では、Windows の vEthernet (WSL) の IPv4 アドレスです。Windows では、`ipconfig` に出る vEthernet (WSL) の IPv4 アドレスを見ます。WSL では、devcontainer のコンテナではなく、WSL のシェル (Ubuntu のターミナルなど) で `ip route show | grep -i default | awk '{ print $3}'` を実行して調べます。コンテナの中で実行すると、既定経路の `172.17.0.1` (docker0) が出ますが、Windows のアドレスではないので使えません。`.env` の扱いは次のとおりです。
+
+- すでに `.devcontainer/.env` がある人は、`.devcontainer/.env.example` の `ADB_SERVER_SOCKET` の行を、`.env` に足し、値の `<Windows のアドレス>` を書き換えます。
+- `.env.example` から作られた `.env` (なければ、コンテナを作るときに `.env.example` からコピーされます) なら、`ADB_SERVER_SOCKET` の行のコメントを外し、値の `<Windows のアドレス>` を書き換えます。
+
+エミュレータを使わない人は、この行を有効にしないので、コンテナの `adb` は今のままです。
+
+確かめ方は次のとおりです。
+
+```bash
+# エミュレータが出る。
+adb devices
+# エミュレータにアプリが入る。
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+コンテナからは `./gradlew installDebug` を使えません。Gradle (Android Gradle Plugin の ddmlib) は `ADB_SERVER_SOCKET` を見ず、`127.0.0.1:5037` にだけつなぐと見込んでいるためです (ddmlib 32.4.1 の jar を調べた結果で、実行では確かめていません)。そのため、コンテナでは、APK を作ってから、`adb install` で入れます。
+
+#### 注意
+
+- スクリプトを実行するときは、Android Studio を閉じてください。スクリプトは adb server を止めて起動し直しますが、Android Studio が開いていると、localhost だけで待ち受ける adb を起動し直し、すべての口で待ち受ける adb server を立てられないおそれがあります (確かめていません)。閉じられないときは、Android Studio の設定に adb server を手動で管理する項目があるようなので、それを使う方法があります (項目の名前と場所は確かめていません)。
+- adb server をすべての口で待ち受けにすると、同じネットワークの別の機械からも、ポート 5037 を通して、このエミュレータを操作できてしまいます。スクリプトの初回の実行で、Windows Defender ファイアウォールが `adb.exe` の許可を尋ねます。許可するのは「プライベート ネットワーク」だけにし、信頼できないネットワーク (公共の Wi-Fi など) に接続しているときは、エミュレータを使い終わったら `adb kill-server` で止めてください。
+  - WSL2 の仮想アダプタ (vEthernet) は、「パブリック」として扱われることがあるようです。その場合、パブリックを許可しないと、コンテナから届かないおそれがあります。これは確かめていません。
+  - 届かないときは、パブリックを許可する代わりに、ポート 5037 を WSL のアドレス範囲に限って許可する規則を作る方法があります。管理者権限の PowerShell で、次のように実行します (コマンドの形は確かめていません)。`172.16.0.0/12` は例で、実際のアドレス範囲は、`ipconfig` に出る vEthernet (WSL) のアドレスで確かめてください。使い終わったら、規則を消します。
+    ```powershell
+    New-NetFirewallRule -DisplayName "adb server (WSL)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5037 -RemoteAddress 172.16.0.0/12
+    Remove-NetFirewallRule -DisplayName "adb server (WSL)"
+    ```
+- Docker Engine を WSL2 の中で動かし (Docker Desktop ではない)、WSL のネットワークが NAT モードのとき、`ADB_SERVER_SOCKET` に `host.docker.internal` (`--add-host` で結んだ host-gateway) は使えません。`host.docker.internal` では届きませんでした (`Connection refused` でした)。host-gateway は WSL の中の docker0 の `172.17.0.1` で、Windows のアドレスではありません。Windows の vEthernet (WSL) の IPv4 アドレスを使うと、コンテナの `adb devices` にエミュレータが出ました (Windows 10.0.26300、adb 37.0.1 で確かめました)。WSL2 の mirrored モードと Docker Desktop では、届く宛先を確かめていません。
+- Windows を再起動すると、vEthernet (WSL) のアドレスが変わることがあります。`.devcontainer/.env` はコンテナの作成時にだけ読まれるので、書き直してコンテナを作り直してください。作り直さずに試すときは、コンテナのシェルで `export ADB_SERVER_SOCKET=tcp:<Windows のアドレス>:5037` とします。
+- コンテナの `adb` は、Dockerfile が platform-tools の版を固定していないので、コンテナを作った時点の最新の版です。ホストとコンテナの `adb version` を比べてください。版が違っても、つながるかは、まだ確かめていません。つながらないときは、ホストの platform-tools を更新するか、コンテナを作り直して、版をそろえてください。
+- `.ps1` は、Windows PowerShell 5.1 で日本語が化けないように、BOM 付きの UTF-8 で保存します。`.bat` は、cmd.exe が日本語の行を読み違えるため、ASCII の文字だけで書きます。文字化けしたり、途中で止まったりしたときは、この文字コードの扱いを確かめてください。
+
 ### Claude Code のスキル
 
 上流の `mattpocock/skills` は、プロジェクトの設定 (`.claude/settings.json` の `extraKnownMarketplaces` と `enabledPlugins`) で、プラグインとして入れています。このプラグインは、マーケットプレイスの中の相対パスのプラグインです。Claude Code は、起動したときにインストールの記録 (`~/.claude/plugins/installed_plugins.json`) とキャッシュだけを読み、マーケットプレイスの確認は起動のあとに背景で行います。インストールの記録がない間は、起動しただけではスキルが出ず、セッションごとに `/reload-plugins` が要ります。そのため、`.devcontainer/bin/post-create.sh` が、コンテナの作成時に `claude plugin marketplace add`、`claude plugin install`、`claude plugin update` を `--scope project` で実行し、記録を作っておきます。記録は `~/.claude` (ボリューム) に残ります。このインストールに失敗してもセットアップは止まりません。手で入れるときは、リポジトリのフォルダで次のコマンドを実行します。

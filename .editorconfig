@@ -9,8 +9,12 @@ indent_style = space
 indent_size = 4
 
 # .gitattributes で CRLF に固定している。
-[*.bat]
+[*.{bat,ps1}]
 end_of_line = crlf
+
+# Windows PowerShell 5.1 は、BOM のない UTF-8 を ANSI として読むため、BOM を付ける。
+[*.ps1]
+charset = utf-8-bom
 
 [*.{yml,yaml}]
 indent_size = 2
