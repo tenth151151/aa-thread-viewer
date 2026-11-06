@@ -18,6 +18,7 @@ helper に、次を読むだけで調べてもらいます。ブランチの切�
 - マージした PR のブランチと、`git branch -vv` でリモートが消えた (`gone` の) ほかのローカルのブランチの、それぞれについて `git merge-base --is-ancestor <ブランチ> origin/main` の終了コード
 - バックアップのタグのそれぞれについて、タグの名前、`git log -1 --format='%h %ci %s' <タグ>` (指しているコミットと、その日時と件名)、元のブランチ (タグの名前から先頭の `backup/` と末尾の `/<日時>` を除いたもの) がローカルにあるか、あるときはその先頭が `origin/main` に入っているか (`git merge-base --is-ancestor <ブランチ> origin/main` の終了コード)。
 - `git worktree list`
+- マージした PR の本文とコメント (`gh pr view <番号> --json body,comments`) にある `#<番号>` を拾い、それぞれ `gh issue view <番号> --json state,labels` で調べて、`wayfinder:map` を除く `wayfinder:<type>` のラベルが付いた、開いている Issue。
 
 PR がマージされていないときは、先に進まず、ユーザーに伝えます。
 
@@ -50,12 +51,13 @@ supervisor が自分で `git status -sb`、`git branch -vv`、`git tag -l 'backu
 
 - main がどのコミットまで進んだか。
 - 消したタグとブランチ。消さなかったものがあれば、その理由。
+- 手順 1 で見つけた、開いている wayfinder のチケット。`docs/agents/issue-tracker.md` の「Resolve」の手順で閉じることを案内します。wayfinder のチケットには `Closes` を書かないので、マージでは閉じないためです。Resolve は Issue への書き込み (コメント、クローズ、マップの本文の書き換え) なので、案内だけで書き込まず、チケットごとに文面をユーザーに見せて確認を取ってから行います (`.claude/rules/upstream-skills.md` の「Issue」の節)。Resolve は地図の本文を書き換えるので、同じ地図のチケットが複数あるときは、1 件ずつ順に行います (並行して書き換えず、書き換える直前に読み直します。`docs/agents/issue-tracker.md` と、上の `upstream-skills.md` の節のとおりです)。該当するものがなければ、ないと一言伝えます。
 
 報告のあと、手順 5 に進みます。
 
 ## 5. ふりかえる
 
-マージした PR と Issue をふりかえり、スキルやルールに反映するべき点を探して提案します。実行するのは supervisor です。提案を見せて、扱いをユーザーに選んでもらうまでは、ファイルを編集せず、GitHub にも書き込みません。上流の `retro` スキルは、`mattpocock-skills` v1.3.2 では、モデルから呼べない設定で、中で `writing-for-agents` を呼びます。後者も deny で止めているため、使いません。
+マージした PR と Issue をふりかえり、スキルやルールに反映するべき点を探して提案します。実行するのは supervisor です。提案を見せて、扱いをユーザーに選んでもらうまでは、ファイルを編集せず、GitHub にも書き込みません (手順 4 の Resolve は、これとは別に、確認を取ったあとで行います)。上流の `retro` スキルは、`mattpocock-skills` v1.3.2 では、モデルから呼べない設定で、中で `writing-for-agents` を呼びます。後者も deny で止めているため、使いません。
 
 手順 5 をどう終えても (ふりかえらずに飛ばすとき、反映するべき点がないとき、扱いが決まったとき)、最後に、ユーザーに次に進められること (Issue や、メモの未完了の事項から) を伝えます。
 

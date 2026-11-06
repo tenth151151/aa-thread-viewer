@@ -19,7 +19,7 @@
 - **関係を読む**: `gh issue view <number> --json parent,subIssues,blockedBy,blocking`。`subIssues`、`blockedBy`、`blocking` は `nodes` と `totalCount` を持ち、`parent` は親がないとき `null` です。gh 2.102.0 は、ページングをせずに `subIssues` を 100 件、`blockedBy` と `blocking` を 50 件までしか取りません。`totalCount` と `nodes` の件数が違うときは、上限を超えていて、全部は返っていません。
 - **open のブロッカーを数える**: `gh issue view <number> --json blockedBy --jq '[.blockedBy.nodes[] | select(.state == "OPEN")] | length'`。閉じたブロッカーも `nodes` に入るので、`state` で絞ります。0 のとき、着手できます。本文の先頭の `Blocked by: #<番号>` の行で関係を表した Issue は、本文の行の番号も見ます。
 - **ラベルを付ける、外す**: `gh issue edit <number> --add-label "<ラベル>"` / `--remove-label "<ラベル>"`
-- **閉じる**: `gh issue comment <number> --body "<本文>"` で説明を書いてから、`gh issue close <number>` を実行します。閉じ済みの Issue に `gh issue close --comment` を使うと、コメントが捨てられるのに終了コードが 0 になるためです。
+- **閉じる**: `gh issue comment <number> --body "<本文>"` で説明を書いてから、`gh issue close <number>` を実行します。閉じ済みの Issue に `gh issue close --comment` を使うと、コメントが捨てられるのに終了コードが 0 になるためです。PR のマージで閉じる (`Closes`) ときは、PR の本文が閉じる説明になるので、コメントは要りません。wayfinder のチケットは、「Resolve」の手順に従います。
 
 リポジトリは `git remote -v` から推測します。clone の中で実行すれば、`gh` が自動で推測します。
 
