@@ -34,12 +34,18 @@ updates:
       # org.jetbrains.kotlin* と書くと、coroutines など Kotlin とは別に出る org.jetbrains.kotlinx:* にも当たる。
       # このため、kotlinx を外すように 2 つに分けている。
       # Compose コンパイラプラグインは Kotlin と同じバージョンで出るので、major も含めていっしょに上げる。
+      # serialization のプラグイン (org.jetbrains.kotlin.plugin.serialization) は、org.jetbrains.kotlin.* のパターンに入る。
+      # serialization のライブラリ (org.jetbrains.kotlinx:kotlinx-serialization-*) もここに入れ、プラグインと同じ PR で上げる。
+      # 片方だけ上がると、プラグインが生成するコードと実行時のライブラリが合わなくなるおそれがある。
+      # coroutines など、ほかの kotlinx は入れない。
+      # パターンが gradle-others の "*" より具体的なので、こちらに入る。
       # KGP は AGP の要求以上に引き上げられるので、カタログの値を上げてもビルドは壊れない。
       # 上げたときは、./gradlew buildEnvironment で実際の値を確かめる (gradle/libs.versions.toml のコメントのとおり)。
       kotlin:
         patterns:
           - "org.jetbrains.kotlin:*"
           - "org.jetbrains.kotlin.*"
+          - "org.jetbrains.kotlinx:kotlinx-serialization-*"
       # ビルド用の constraints (gradle/libs.versions.toml の bouncycastle、jose4j、jdom2、commons-lang3、httpclient、freemarker) だけをまとめる。
       # これらは AGP や Kover など、プラグインのビルド用クラスパスと lint に入る推移的な依存関係で、プラグインが試していない版に上がると壊れることがある。
       # gradle-others と分けるのは、壊れたときに、junit や spotless の更新と切り分けやすくするためである。

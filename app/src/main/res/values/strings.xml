@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">AA Thread Viewer</string>
+    <string name="home_open_dat">dat を開く</string>
+    <string name="thread_selected_file">選んだファイル: %1$s</string>
 </resources>

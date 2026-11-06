@@ -1,7 +1,9 @@
 package io.github.tenth151151.aathreadviewer.home
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -12,9 +14,19 @@ import io.github.tenth151151.aathreadviewer.R
 import io.github.tenth151151.aathreadviewer.ui.theme.AAThreadViewerTheme
 
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+fun HomeScreen(
+    onOpenDat: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Text(text = stringResource(R.string.app_name))
+        Button(onClick = onOpenDat) {
+            Text(text = stringResource(R.string.home_open_dat))
+        }
     }
 }
 
@@ -22,6 +34,6 @@ fun HomeScreen(modifier: Modifier = Modifier) {
 @Composable
 private fun HomeScreenPreview() {
     AAThreadViewerTheme {
-        HomeScreen()
+        HomeScreen(onOpenDat = {})
     }
 }
