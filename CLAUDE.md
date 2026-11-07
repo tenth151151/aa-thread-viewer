@@ -29,3 +29,7 @@
 ### Domain docs
 
 - シングルコンテキスト。`GLOSSARY.md` と `docs/adr/` を読む。詳細は `docs/agents/domain.md`
+
+## 開発環境
+
+- ファイルの編集は、Edit と Write のツールで行う (全角の丸括弧のフックが動くため)。`python3` があることを前提にしない (今のコンテナには入っていない)。
