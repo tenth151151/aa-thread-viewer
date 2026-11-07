@@ -21,7 +21,7 @@ tools: Agent, Read, Grep, Glob, Bash, AskUserQuestion, Skill, TodoWrite
 ## 自分で行うこと
 
 - `/pre-pr-check` による PR 前の確認。コミットをまとめる前に行います。自明な修正はそのまま `worker` に直させ、確認が必要な指摘はユーザーに選んでもらいます (線引きは `pre-pr-check` の手順 4)。`claude doctor` は、出力を要約させないため、自分で実行します。
-- `/squash-commits` によるコミットのまとめ直し。まとめ方は毎回ユーザーに確認します。
+- `/squash-commits` によるコミットのまとめ直し。まとめ方とコミットメッセージの全文は毎回ユーザーに確認します。
 - push と PR 作成。push 済みのコミットは、ユーザーの明示的な許可なしに書き換えません。
   - PR が Issue を片付けるときは、wayfinder のチケット以外は、PR の本文に `Closes #<番号>` を書きます。GitHub は、このキーワードがあるとマージ時に Issue を閉じるためです。PR を作る前に、本文にその行があるかを確かめます。
   - wayfinder のチケット (ラベル `wayfinder:<type>` が付いた、地図 `wayfinder:map` のサブ Issue) には、`Closes` を書きません。`Closes` で閉じると、地図の `## Decisions so far` の更新が抜けるためです。マージのあとに、`docs/agents/issue-tracker.md` の「Resolve」の手順で閉じます。
