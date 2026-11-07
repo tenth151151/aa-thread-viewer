@@ -11,7 +11,7 @@ kotlinxSerialization = "1.12.0"
 coreKtx = "1.19.1"
 junit = "4.13.2"
 commonsText = "1.15.0"
-spotless = "8.10.4"
+spotless = "8.11.0"
 ktlint = "1.8.0"
 kover = "0.9.11"
 # ビルド時の依存関係 (プラグインのビルド用クラスパスと lint) の脆弱性対応用。下の [libraries] のコメントを参照。
