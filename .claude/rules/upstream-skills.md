@@ -38,13 +38,18 @@
 
 - 本文とコメントは、日本語 (です・ます調) で書きます。ただし、上流のスキルが後で読み直す文字列は、上流の英語のまま書き、中身の文だけを日本語で書きます。英語のまま残すものは、下の「英語のまま残すもの」の節にあります。
 - Issue への書き込みすべて (作成、コメント、ラベルの変更、本文の書き換え、関係 (親子とブロック) の設定、担当者の割り当て (Claim)、クローズ (Resolve)) の前に、文面や内容をユーザーに見せて確認を取ります。上流の `to-spec`、`to-tickets`、`triage`、`wayfinder` の、確認しない手順よりも、この決まりを優先します。
-- Issue、PR、ラベルへの書き込みと、リポジトリを指定する `gh -R` と `gh --repo` は、`.claude/settings.json` の `ask` でも止まります。supervisor が文面の確認を取ったあとでも、毎回ユーザーの許可が要ります。対象は次のとおりです。
-  - Issue: `gh issue create`、`comment`、`edit`、`close`、`reopen`、`delete`、`transfer`、`lock`、`unlock`、`pin`、`unpin`、`develop`。
-  - PR: `gh pr comment`、`edit`、`close`、`reopen`、`review`。`gh pr review` の承認 (`--approve` と `-a`) は、deny が先に止めます。
+- 次の書き込みと、リポジトリを指定する `gh -R` と `gh --repo` は、`.claude/settings.json` の `ask` でも止まります。supervisor が文面の確認を取ったあとでも、毎回ユーザーの許可が要ります。対象は次のとおりです。
+  - Issue: `gh issue create` (別名の `gh issue new` も止めます)、`comment`、`delete`、`transfer`、`lock`、`unlock`、`pin`、`unpin`、`develop`。作成とコメントを残すのは、リポジトリが公開で、消しても通知が残るためと、外から来た文章に仕込まれた指示で書き込まされるのを止めるためです。
+  - PR: `gh pr comment`、`close`、`reopen`、`review`。`gh pr review` の承認 (`--approve` と `-a`) は、deny が先に止めます。
   - ラベル: `gh label create`、`edit`、`delete`。
   - リポジトリの指定: `gh -R *`、`gh --repo *`。別のリポジトリを指す呼び出しは、上の一覧の形に当たらないことがあるため、まとめて止めます。
+- `gh issue edit`、`close`、`reopen` と `gh pr edit` は、基本的に `ask` に入れません。
+  - ラベル、状態、関係の変更は、元に戻せます。
+  - 本文やタイトルの編集は、履歴が公開で残り、元に戻しても消えません。それでも、supervisor が先に文面の確認を取るので、確認が 2 重になるのを避けるために、`ask` に入れません。
+  - 次の使い方だけは、`ask` で止めます。公開のコメントが付く `close` と `reopen` の `-c` と `--comment`、担当者に `@copilot` を指定する `gh issue edit` と `gh pr edit` (Copilot のエージェントが動き出すため)、PR のマージ先を変える `gh pr edit` の `--base` と `-B` です。
+- Issue と PR 以外の gh の書き込み (リポジトリの設定、secret、release、workflow、拡張、認証など) も、`.claude/settings.json` の `ask` と `deny` で止めています。この一覧は、パターンで止める最後の柵で、すべてを網羅してはいません。
 - 親子は GitHub のサブ Issue、ブロックは GitHub の依存関係で表します。上流のネイティブの手順のとおりです。上流にある、サブ Issue が使えないときの代わり (マップの本文のタスクリストと `Part of` の行) は使いません。設定には `gh issue create` と `gh issue edit` のオプション (`--parent`、`--blocked-by`、`--blocking`、`--add-sub-issue`、`--add-blocked-by`、`--add-blocking`、`--remove-parent`、`--remove-sub-issue`、`--remove-blocked-by`、`--remove-blocking`) を使います。上流にある古い `gh` 向けの `gh api` の手順は使いません (`gh api` の書き込みは deny で止まります)。
-  - 関係の設定も Issue への書き込みなので、確認の対象で、`gh issue create` と `gh issue edit` の `ask` の対象です。
+  - 関係の設定も Issue への書き込みなので、supervisor がユーザーの確認を取ります。関係を `gh issue create` のオプションで設定するときは `ask` で止まり、`gh issue edit` のオプションで設定するときは止まりません (`@copilot` を含む形の `gh issue edit` は、関係を設定するときも止まります)。
   - 本文の先頭の `Part of #<番号>` の行 (親子) や `Blocked by: #<番号>` の行 (ブロック) で関係を表した Issue も残っています。親子とブロックのどちらも、関係を読むときは、ネイティブの関係に加えて、本文の行も見ます。新しく関係を付けるときは、本文の行を使わず、ネイティブの関係だけを設定します。
   - `--add-label`、`--remove-label`、`--add-assignee`、`--remove-assignee` など、関係を設定しないオプションも使ってかまいません。
 - 確認は supervisor がユーザーに取ります。サブエージェント (worker、helper、上流のスキルが起こすサブエージェントを含む) は、Issue への書き込みを自分で行わず、文面を supervisor に返します。wayfinder の Resolve や research のサブエージェントにも当てはまります。
