@@ -15,6 +15,7 @@ buildscript {
             classpath(libs.commons.lang3)
             classpath(libs.httpclient)
             classpath(libs.freemarker)
+            classpath(libs.guava)
         }
     }
 }

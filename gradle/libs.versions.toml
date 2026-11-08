@@ -21,6 +21,7 @@ jdom2 = "2.0.6.1"
 commonsLang3 = "3.21.0"
 httpclient = "4.5.14"
 freemarker = "2.3.35"
+guava = "33.7.2-jre"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -49,6 +50,7 @@ jdom2 = { group = "org.jdom", name = "jdom2", version.ref = "jdom2" }
 commons-lang3 = { group = "org.apache.commons", name = "commons-lang3", version.ref = "commonsLang3" }
 httpclient = { group = "org.apache.httpcomponents", name = "httpclient", version.ref = "httpclient" }
 freemarker = { group = "org.freemarker", name = "freemarker", version.ref = "freemarker" }
+guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

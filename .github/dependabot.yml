@@ -46,7 +46,7 @@ updates:
           - "org.jetbrains.kotlin:*"
           - "org.jetbrains.kotlin.*"
           - "org.jetbrains.kotlinx:kotlinx-serialization-*"
-      # ビルド用の constraints (gradle/libs.versions.toml の bouncycastle、jose4j、jdom2、commons-lang3、httpclient、freemarker) だけをまとめる。
+      # ビルド用の constraints (gradle/libs.versions.toml の bouncycastle、jose4j、jdom2、commons-lang3、httpclient、freemarker、guava) だけをまとめる。
       # これらは AGP や Kover など、プラグインのビルド用クラスパスと lint に入る推移的な依存関係で、プラグインが試していない版に上がると壊れることがある。
       # gradle-others と分けるのは、壊れたときに、junit や spotless の更新と切り分けやすくするためである。
       # パターンが gradle-others の "*" より具体的なので、こちらに入る。
@@ -59,6 +59,7 @@ updates:
           - "org.apache.commons:commons-lang3"
           - "org.apache.httpcomponents:httpclient"
           - "org.freemarker:freemarker"
+          - "com.google.guava:guava"
         update-types:
           - minor
           - patch
