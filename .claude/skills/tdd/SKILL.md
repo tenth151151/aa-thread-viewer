@@ -11,7 +11,7 @@ description: このプロジェクトで TDD の 1 サイクル (赤、緑、リ
 
 - モジュールは `:app` の 1 つです。パッケージは `io.github.tenth151151.aathreadviewer` の下に置きます。
 - 本体は `app/src/main/kotlin/<パッケージのパス>/`、テストは `app/src/test/kotlin/<パッケージのパス>/` に置きます。テストのファイル名は `<対象>Test.kt` とします。
-- テストは JUnit 4 のローカル単体テストです。エミュレータは使えない前提なので、計装テスト (`androidTest`) は使わず、ロジックは JVM で試せる単体テストに寄せます。
+- テストは JUnit 4 のローカル単体テストです。テストの自動実行ではエミュレータを使わない前提なので、計装テスト (`androidTest`) は使わず、ロジックは JVM で試せる単体テストに寄せます。エミュレータでの確認は、テストには含めず、`/emulator-check` で手で行います。
 - テスト名は、振る舞いが分かる日本語の文 (バッククォート囲み) にします。
 
 ## 実行コマンド
@@ -137,14 +137,16 @@ bash bin/check-fullwidth-parens.sh
 
 ### カバレッジの確認
 
-新しく書いたコードがテストを通っているかは、カバレッジのレポートで確認します。基準値は `check` で検査されるので (手元でも CI でも)、ここでは確認の手順だけを示します。数字とレポートは、debug と release を合わせた全体のものです。次のコマンドは、赤緑の途中で手早く見るためのものです。コミットの前の確認は、「コミットの前に」の節のコマンドで行います。
+新しく書いたコードがテストを通っているかは、カバレッジのレポートで確認します。基準値は `check` で検査されるので (手元でも CI でも)、ここでは確認の手順だけを示します。次のコマンドは、赤緑の途中で手早く見るためのものです。コミットの前の確認は、「コミットの前に」の節のコマンドで行います。
 
 ```bash
-./gradlew koverLog koverHtmlReport
+./gradlew :app:koverPrintCoverage koverHtmlReport
 ```
 
-1. `koverLog` の出力 (`application line coverage: <割合>%`) で、行のカバレッジを見ます。
-2. `app/build/reports/kover/html/index.html` を開き、今回書いたクラスの通っていない行を探します。
+1. `koverPrintCoverage` の出力 (`application line coverage: <割合>%`) で、行のカバレッジを見ます。この値は、`check` に入っている `koverVerify` が基準値と比べる値と同じです。どちらも、debug と release を合わせた全体のレポート (`koverGenerateArtifact`) から計算し、`app/build.gradle.kts` の `kover` の `filters` の除外を反映するためです (Kover 0.9.11 で確かめました)。
+   - `app/build/reports/kover/` の `reportDebug.xml` と `htmlDebug/` は、debug だけのレポートです。判定に使う値ではないので、カバレッジの値を読み取りません。古いファイルが残っていることもあります。
+   - `report.xml` と `html/` は全体のレポートですが、`koverXmlReport` や `koverHtmlReport` を実行した時点の内容です。最新の値は、`koverPrintCoverage` の出力で見ます。
+2. `app/build/reports/kover/html/index.html` を開き、今回書いたクラスの通っていない行を探します。`koverHtmlReport` を実行した直後の内容かを確かめます。
 3. 通っていない行が、今回扱う振る舞いの行なら、その振る舞いのテストが足りません。サイクルに戻ります。
 4. `@Composable` の関数と、Activity と Application のクラスは、測る対象から外してあります。レポートに出なくても、問題ではありません。
 5. 基準値 (80%) を下回ると `check` が失敗します。基準値と除外の扱いは、`.claude/rules/tdd.md` の決まりのとおりです。
