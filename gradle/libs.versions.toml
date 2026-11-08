@@ -41,6 +41,9 @@ commons-text = { group = "org.apache.commons", name = "commons-text", version.re
 # プラグインと lint の推移的な依存関係を、脆弱性の修正版以上に引き上げるために、root と app の build.gradle.kts の constraints が参照する。
 # Dependabot がこのファイルの [libraries] を読むので、更新の PR で版が追える。
 # 更新の PR は、dependabot.yml の build-constraints グループ (minor と patch) にまとまる。
+# constraint を足したり外したりしたときは、root と app の build.gradle.kts の constraints と、dependabot.yml の build-constraints グループ (パターンとコメント) と、README.md の一覧もそろえる。
+# あわせて、[versions] の版 (ライブラリは version.ref で参照する) と、各所のコメントで名前を挙げているものもそろえる。
+# 名前を挙げている所は、app/build.gradle.kts の「今の androidLintTool に出てこないもの」の一覧と、dependabot.yml の Kover が引き込む freemarker の注意である。
 # bouncycastle の 3 つは同じ版にそろえる。
 bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 bouncycastle-bcpkix = { group = "org.bouncycastle", name = "bcpkix-jdk18on", version.ref = "bouncycastle" }
