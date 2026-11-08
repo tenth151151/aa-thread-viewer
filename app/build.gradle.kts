@@ -146,5 +146,6 @@ dependencies {
         add("androidLintTool", libs.commons.lang3)
         add("androidLintTool", libs.httpclient)
         add("androidLintTool", libs.freemarker)
+        add("androidLintTool", libs.guava)
     }
 }
