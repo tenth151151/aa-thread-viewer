@@ -86,6 +86,13 @@ Kotlin のコンパイラの警告は、`check` だけでなく、テストの�
 2. 整えるたびに `./gradlew :app:testDebugUnitTest --rerun` (`--tests` なし) を実行します。
 3. 整える対象は、今回のサイクルで書いたコードに限ります。
 
+## ViewModel のテスト
+
+- ViewModel は Repository の interface に依存させ、テストでは `app/src/test/kotlin/` の `FakeXxxRepository` をコンストラクタに渡します。モックのライブラリは使いません。
+- ViewModel は `viewModelScope` で動きます。`@Before` で `Dispatchers.setMain(StandardTestDispatcher())` を呼び、`@After` で `Dispatchers.resetMain()` を呼んで、Main ディスパッチャーを差し替えます。`runTest` にも同じディスパッチャーを渡し、スケジューラーをそろえます。
+- 読み込み中の状態を確かめるには、Fake が `CompletableDeferred` を待つようにします。読み込み中であることを確かめてから、`CompletableDeferred` を完了し、`advanceUntilIdle()` を呼んで、最後の状態を確かめます。
+- `stateIn(…, SharingStarted.WhileSubscribed(…), …)` で作った `StateFlow` は、集める側がいないと、`value` が初期値のままになります。テストで `value` を検証するときは、`backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.xxx.collect {} }` のように、空の collector を用意します。`MutableStateFlow` を直接更新して公開する ViewModel では、要りません。
+
 ## 報告に含めること
 
 worker は、次のことを報告します。

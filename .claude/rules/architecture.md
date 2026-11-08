@@ -17,7 +17,7 @@ MVVM + UDF (単方向データフロー) で作ります。
   - それ以外の操作 (状態を変える操作、データ層とやり取りする操作) は、ViewModel のメソッドで受けます。ただし、UI 要素の状態だけを変える操作 (開け閉めの切り替えなど) は、Composable の中で扱ってかまいません。
 - UI state を sealed にするか data class にするかは、画面ごとに決めます。
 - ViewModel を持つ画面は、2 つの Composable に分けます。ViewModel を受け取る画面 (例: `XxxScreen(viewModel)`) と、UI state と操作のラムダだけを受け取る、状態を持たない Composable (例: `XxxContent(uiState, onXxx)`) です。プレビューは、状態を持たない Composable で行います。Compose の UI テストは、今は書きません (テストは JVM の JUnit 4 で動かしていて、エミュレータを使う計装テスト (`androidTest`) は使わない前提のためです)。UI テストが要るときは、ユーザーに相談します。
-- 画面 (`XxxScreen`) は、`collectAsStateWithLifecycle` (`androidx.lifecycle:lifecycle-runtime-compose`) で UI state を集め、状態を持たない Composable に渡します。このライブラリを足す時期は、「最初の ViewModel を作るときにすること」の節を、版は「画面の切り替え」の節を参照してください。
+- 画面 (`XxxScreen`) は、`collectAsStateWithLifecycle` (`androidx.lifecycle:lifecycle-runtime-compose`) で UI state を集め、状態を持たない Composable に渡します。このライブラリの版は、「画面の切り替え」の節を参照してください。
 
 ```kotlin
 @Composable
@@ -63,7 +63,7 @@ fun XxxContent(
 #### 足すライブラリと時期
 
 - 画面を 2 つ以上にするとき (`NavDisplay` を入れるとき) に、`androidx.navigation3` の `navigation3-runtime` と `navigation3-ui` を足します。あわせて、`kotlinx-serialization-core` と、Kotlin の serialization のプラグイン (`org.jetbrains.kotlin.plugin.serialization`) を足します。`kotlinx-serialization-core` は、画面のキーをシリアライズできるようにするためです (出典は「出典」の節の Navigation 3 のはじめかた)。プラグインは公式では任意とされていますが、本プロジェクトでは、画面のキーに `@Serializable` を付けてシリアライザーを生成するので、足します。serialization のプラグインの版は、Kotlin の版にそろえます。
-- `NavDisplay` と ViewModel を持つ画面の両方がそろったときに、`lifecycle-viewmodel-navigation3` を足します (画面の切り替えを入れるときと、最初の ViewModel を作るときの、遅いほう)。
+- `NavDisplay` と ViewModel を持つ画面の両方がそろったときに、`lifecycle-viewmodel-navigation3` を足します。
 - Lifecycle のライブラリ (`lifecycle-runtime-compose`、`lifecycle-viewmodel-compose`、`lifecycle-viewmodel-navigation3`) は、同じ安定版にそろえます。版は Lifecycle のリリースノートで確かめます。Navigation 3 が 1.2.0 のとき、公式の Navigation 3 のはじめかたのページの例は、`lifecycle-viewmodel-navigation3` に alpha の版を示していました。
 
 #### デコレーター
@@ -72,8 +72,7 @@ fun XxxContent(
 
 #### ViewModel のスコープ
 
-- `NavDisplay` を使うときは、ViewModel を画面のエントリーにスコープします (同じ画面がバックスタックに複数あるときは、エントリーごとに別の ViewModel になります)。画面の切り替えを入れるときは、既にある ViewModel も、エントリーにスコープするように直します。
-- `NavDisplay` がなく画面が 1 つのうちは、ViewModel は Activity のスコープになります。画面が 1 つなので共有されず、それでかまいません。
+- `NavDisplay` を使うときは、ViewModel を画面のエントリーにスコープします (同じ画面がバックスタックに複数あるときは、エントリーごとに別の ViewModel になります)。
 - 画面をまたいで ViewModel を共有したいときは、Hilt に移る目安に当たるので、必ず相談します。
 
 ## 層
@@ -91,10 +90,10 @@ UI 層とデータ層の 2 層で作ります。
 手動の DI から始め、コンストラクタ注入を守ります。
 
 - `Application` に `AppContainer` を置きます (JetNews と同じ形)。`AppContainer` は、Repository などを作って ViewModel に渡す入れ物です。
-- `Application` のクラスは、`AndroidManifest.xml` の `<application>` に `android:name` で登録します (今のマニフェストには `android:name` がありません)。
-- `AppContainer` は、最初の Repository を作るときに作ります。それまでは作りません。
+- `Application` のクラス (`AatvApplication`) は、`AndroidManifest.xml` の `<application>` に `android:name` で登録します。
+- Repository は、`AppContainer` で作ります。
 - クラスは、依存するものをコンストラクタで受け取ります。クラスの中で依存先を生成したり、グローバルな状態から取り出したりしません。
-- 手動の DI での ViewModel の作り方は、今は決めません。決める時期は、「最初の ViewModel を作るときにすること」の節を参照してください。
+- ViewModel は、`ViewModelProvider.Factory` で作ります。ViewModel の `companion object` に、`viewModelFactory { initializer { … } }` で Factory を作る関数を置きます。`initializer` の中で、`ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY` から `Application` を取り、その `AppContainer` の Repository を ViewModel のコンストラクタに渡します。画面のキーの値 (Uri など) は、この関数の引数からコンストラクタに渡します (例: `ThreadViewModel.factory(uri)`)。画面 (`XxxScreen` を呼ぶ側) は、`viewModel(factory = …)` で ViewModel を受け取ります。
 
 ### Hilt に移る目安
 
@@ -131,7 +130,7 @@ UI 層とデータ層の 2 層で作ります。
    - プラグインを 2 つ (`com.google.devtools.ksp`、`com.google.dagger.hilt.android`)。
 2. root の `build.gradle.kts` の `plugins` に、2 つのプラグインを `apply false` で足します。
 3. `app/build.gradle.kts` に、2 つのプラグインと、`implementation(hilt-android)`、`implementation(androidx-hilt-lifecycle-viewmodel-compose)`、`ksp(hilt-compiler)` を足します。
-4. 今の `Application` (`AppContainer` を持つもの) に `@HiltAndroidApp` を付けます。`Application` がまだないときは作り、`AndroidManifest.xml` の `<application>` に `android:name` で登録します。`MainActivity` に `@AndroidEntryPoint` を付けます。
+4. 今の `Application` (`AppContainer` を持つもの) に `@HiltAndroidApp` を付けます。`MainActivity` に `@AndroidEntryPoint` を付けます。
 5. Repository は、interface と、`@Inject constructor` の実装にします。`@Module` と `@InstallIn(SingletonComponent::class)` を付けたクラスの `@Binds` で、interface に実装を結び付けます。
 6. ViewModel に `@HiltViewModel` と `@Inject constructor` を付けます。
 7. `AppContainer` と、手動の ViewModel の Factory を外します。Hilt の Module と `@HiltViewModel` に置き換えるので、2 つの DI を並べて残しません。
@@ -159,42 +158,33 @@ UI 層とデータ層の 2 層で作ります。
 - Repository とデータ源は、`data/` に置きます。dat を取得したり保存したりするデータ源と Repository も `data/` に置き、`dat/` の解析を使います。
 - `dat/` には、dat 形式の解析 (文字列から `Post` などを作る、取得や保存をしないコード) だけを置きます。
 - `dat/` と `ui/theme/` は、共通として今の場所に置きます。
-- `MainActivity` と、`NavDisplay` を出す `AatvNavDisplay`、将来の `Application`、`AppContainer` は、ルートのパッケージに置きます。
+- `MainActivity` と、`NavDisplay` を出す `AatvNavDisplay`、`AatvApplication`、`AppContainer` は、ルートのパッケージに置きます。
 
-ルートのパッケージは `io.github.tenth151151.aathreadviewer` で、ファイルは `app/src/main/kotlin/` の下に置きます。次は、ホーム画面に ViewModel と Repository を足したあとの例です。`(未作成)` を付けたファイルは、今はありません。
+ルートのパッケージは `io.github.tenth151151.aathreadviewer` で、ファイルは `app/src/main/kotlin/` の下に置きます。次は、今のファイルの構成です。
 
 ```text
 io/github/tenth151151/aathreadviewer/
 ├── MainActivity.kt
 ├── AatvNavDisplay.kt       (NavDisplay と、画面のキーごとの画面の対応)
-├── AatvApplication.kt      (未作成。AppContainer を持つ)
-├── AppContainer.kt         (未作成。最初の Repository を作るときに作る)
+├── AatvApplication.kt      (AppContainer を持つ)
+├── AppContainer.kt         (Repository などを作る)
 ├── dat/                    (dat 形式の解析。取得や保存はしない)
 ├── ui/theme/               (共通のテーマ)
-├── data/                   (未作成)
-│   └── ThreadRepository.kt (interface。実装も data/ に置く)
-├── home/
+├── data/
+│   ├── ThreadRepository.kt (interface)
+│   ├── DefaultThreadRepository.kt
+│   ├── DatSource.kt        (interface)
+│   ├── ContentResolverDatSource.kt
+│   └── BoardType.kt
+├── home/                   (ViewModel を持たない)
 │   ├── HomeKey.kt
-│   ├── HomeScreen.kt
-│   ├── HomeViewModel.kt    (未作成)
-│   └── HomeUiState.kt      (未作成)
+│   └── HomeScreen.kt
 └── thread/
     ├── ThreadKey.kt
-    └── ThreadScreen.kt
+    ├── ThreadScreen.kt
+    ├── ThreadViewModel.kt
+    └── ThreadUiState.kt
 ```
-
-`Application` のクラス名は例であり、作るときに決めます。
-
-## 最初の ViewModel を作るときにすること
-
-最初の ViewModel を作るときに、次を行います。
-
-- Lifecycle のライブラリ (`lifecycle-runtime-compose`、`lifecycle-viewmodel-compose`) を、`gradle/libs.versions.toml` と `app/build.gradle.kts` に足します。版と、`lifecycle-viewmodel-navigation3` を足す時期は、「画面の切り替え」の節に従います。`NavDisplay` があるときは、デコレーターも、その節のとおりに並べます。
-- `kotlinx-coroutines-test` などを入れます。
-- 手動の DI での ViewModel の作り方 (`ViewModelProvider.Factory` など) を決めます。**ViewModel を作る前に**、ユーザーに相談します。
-- `/tdd` スキル (`.claude/skills/tdd/SKILL.md`) に、ViewModel のテストの書き方 (Fake を渡す、Main ディスパッチャーの差し替えなど) と、`stateIn(…, SharingStarted.WhileSubscribed(…), …)` で作った `StateFlow` の注意を足します。注意とは、集める側がいないと `value` が初期値のままになることです。テストで `value` を検証するときは、`backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.xxx.collect {} }` のように、空の collector を用意します (出典は「出典」の節の Flow のテストのページ)。
-
-最初の Repository を同時に作るときは、`AppContainer` も作ります (DI の節のとおり)。
 
 ## テスト
 
@@ -202,9 +192,9 @@ Fake を使います。
 
 - Fake に差し替えられるよう、ViewModel は Repository の interface に依存します。
 - `FakeXxxRepository` を、テスト用のソースセット (`app/src/test/kotlin/`) に置き、ViewModel のコンストラクタに渡します。Fake の名前は、Repository の interface の名前の前に `Fake` を付けます (`ThreadRepository` なら `FakeThreadRepository`)。
-- ViewModel のテストに要るライブラリと、`/tdd` スキルへの追記は、「最初の ViewModel を作るときにすること」の節を参照してください。
+- ViewModel のテストは、コルーチンのテスト用のライブラリ (`kotlinx-coroutines-test`) を使います。書き方は、`/tdd` スキル (`.claude/skills/tdd/SKILL.md`) の「ViewModel のテスト」の節にあります。
 - モックのライブラリは、使いません。Fake では書きにくいと分かったときだけ、ユーザーに相談します。
-- `StateFlow` は、`value` で検証できる形にします (`stateIn` の注意は、「最初の ViewModel を作るときにすること」の節を参照してください)。
+- `StateFlow` は、`value` で検証できる形にします。`stateIn(…, SharingStarted.WhileSubscribed(…), …)` で作った `StateFlow` は、集める側がいないと `value` が初期値のままになります。その場合の空の collector の用意の仕方は、`/tdd` スキルの「ViewModel のテスト」の節にあります (出典は「出典」の節の Flow のテストのページ)。
 - テストの進め方は、`.claude/rules/tdd.md` に従います。
 
 ## 出典

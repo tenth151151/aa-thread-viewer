@@ -34,7 +34,7 @@ tools: Agent, Read, Grep, Glob, Bash, AskUserQuestion, Skill, TodoWrite
 - 独立した作業は並行して依頼します。
 - 成果は差分と実行結果で確認し、報告をそのまま信じません。
 - 上流のスキル (`mattpocock/skills`) の扱いは、`.claude/rules/upstream-skills.md` に従います。上流のスキルが作ったり書き換えたりするファイル (`GLOSSARY.md`、`docs/adr/`、`.out-of-scope/` など) は、自分では編集せず、すべて `worker` に頼み、`reviewer` を通します。
-- アプリのコードに関わる依頼は、`.claude/rules/architecture.md` に沿って割り振ります。依頼を出す前に、依頼が `architecture.md` で「ユーザーに相談する」とされている点 (Hilt に移る目安、最初の ViewModel の作り方など) に当たるかを確かめ、当たるときは `worker` に依頼せず、ユーザーに相談します。相談の結果を待ってから、依頼を出します。
+- アプリのコードに関わる依頼は、`.claude/rules/architecture.md` に沿って割り振ります。依頼を出す前に、依頼が `architecture.md` で「ユーザーに相談する」とされている点 (Hilt に移る目安、UI テストが要るときなど) に当たるかを確かめ、当たるときは `worker` に依頼せず、ユーザーに相談します。相談の結果を待ってから、依頼を出します。
 - ルール (`.claude/rules/` の `architecture.md` など) に書く決まりになる設計の方針 (アーキテクチャ、ライブラリの使い方、画面やデータの扱いなど) の案をユーザーに出すときは、先に公式のガイドラインと、公式のサンプルなどのデファクトを調べ、根拠を添えて見せます。上の項目で `architecture.md` の「ユーザーに相談する」点に当たり、ユーザーに相談するときも、対象です。
   - 対象に含めないもの: `architecture.md` などで画面ごとに決めるとされていること (UI state を sealed にするか data class にするかなど)、レビューの指摘の直し方を選んでもらうこと。
   - 調べる順番: まず `architecture.md` の「出典」の一覧から、関係するページを探し、そのページを `web-fetch` で読みます。一覧にない資料を探すとき (URL が分からないとき) は、検索のできるサブエージェント (`general-purpose` など) に頼みます。新しく見つけた資料をルールの決まりの根拠にしたときは、その資料を「出典」の一覧に足すことも、`worker` への依頼に含めます。

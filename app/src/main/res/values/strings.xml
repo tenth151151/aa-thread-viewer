@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">AA Thread Viewer</string>
     <string name="home_open_dat">dat を開く</string>
-    <string name="thread_selected_file">選んだファイル: %1$s</string>
+    <string name="thread_loading">読み込み中です…</string>
+    <string name="thread_error">スレッドを読めませんでした。</string>
+    <string name="thread_post_header">%1$d  %2$s  %3$s</string>
+    <string name="thread_unreadable_post">%1$d  このレスは読めませんでした。</string>
 </resources>
