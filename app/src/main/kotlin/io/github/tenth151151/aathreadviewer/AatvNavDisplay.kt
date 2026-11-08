@@ -4,13 +4,17 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import io.github.tenth151151.aathreadviewer.home.HomeKey
 import io.github.tenth151151.aathreadviewer.home.HomeScreen
 import io.github.tenth151151.aathreadviewer.thread.ThreadKey
 import io.github.tenth151151.aathreadviewer.thread.ThreadScreen
+import io.github.tenth151151.aathreadviewer.thread.ThreadViewModel
 
 @Composable
 fun AatvNavDisplay(modifier: Modifier = Modifier) {
@@ -26,6 +30,13 @@ fun AatvNavDisplay(modifier: Modifier = Modifier) {
     NavDisplay(
         backStack = backStack,
         onBack = { backStack.removeLastOrNull() },
+        // 既定のリストが置き換わるので、rememberSaveableStateHolderNavEntryDecorator() も並べる。
+        // ViewModel は、この順で並べたデコレーターによって、画面のエントリーにスコープする。
+        entryDecorators =
+            listOf(
+                rememberSaveableStateHolderNavEntryDecorator(),
+                rememberViewModelStoreNavEntryDecorator(),
+            ),
         modifier = modifier,
         entryProvider =
             entryProvider {
@@ -38,7 +49,7 @@ fun AatvNavDisplay(modifier: Modifier = Modifier) {
                     )
                 }
                 entry<ThreadKey> { key ->
-                    ThreadScreen(uri = key.uri)
+                    ThreadScreen(viewModel = viewModel(factory = ThreadViewModel.factory(key.uri)))
                 }
             },
     )
