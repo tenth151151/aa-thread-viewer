@@ -12,7 +12,7 @@ PR が main にマージされたあとに、ローカルの main を更新し�
 
 helper に、次を読むだけで調べてもらいます。ブランチの切り替え、pull、タグやブランチの削除、コミットはさせません。`git fetch origin --prune` だけは実行させます。
 
-- `gh pr view <番号> --json state,mergedAt,mergeCommit,headRefName` (PR がマージ済みか、マージコミット、ブランチ名)。ユーザーが番号を言わなかったときは、今のブランチ名で `gh pr list --state merged --head <ブランチ名> --json number` を実行して探します。見つからないとき、または 2 つ以上見つかったときは、ユーザーに番号を確かめます。
+- `gh pr view <番号> --json state,mergedAt,mergeCommit,headRefName` (PR がマージ済みか、マージコミット、ブランチ名)。ブランチ名 (`headRefName`) は、手順 5 の「対象」でも使います。ユーザーが番号を言わなかったときは、今のブランチ名で `gh pr list --state merged --head <ブランチ名> --json number` を実行して探します。見つからないとき、または 2 つ以上見つかったときは、ユーザーに番号を確かめます。
 - `git fetch origin --prune` のあと、`git status -sb`、`git log --oneline -3 origin/main`、`git branch -vv`
 - `git tag -l 'backup/*'`
 - マージした PR のブランチと、`git branch -vv` でリモートが消えた (`gone` の) ほかのローカルのブランチの、それぞれについて `git merge-base --is-ancestor <ブランチ> origin/main` の終了コード
@@ -59,11 +59,14 @@ supervisor が自分で `git status -sb`、`git branch -vv`、`git tag -l 'backu
 
 マージした PR と Issue をふりかえり、スキルやルールに反映するべき点を探して提案します。実行するのは supervisor です。提案を見せて、扱いをユーザーに選んでもらうまでは、ファイルを編集せず、GitHub にも書き込みません (手順 4 の Resolve は、これとは別に、確認を取ったあとで行います)。上流の `retro` スキルは、`mattpocock-skills` v1.3.2 では、モデルから呼べない設定で、中で `writing-for-agents` を呼びます。後者も deny で止めているため、使いません。
 
-手順 5 をどう終えても (ふりかえらずに飛ばすとき、反映するべき点がないとき、扱いが決まったとき)、最後に、ユーザーに次に進められること (Issue や、メモの未完了の事項から) を伝えます。
+ふりかえらずに飛ばしたときは、飛ばしたことと理由をユーザーに伝えます。`retro/` のときは、頼めばふりかえることも一言添えます。
+
+手順 5 をどう終えても (飛ばしたとき、反映するべき点がないとき、扱いが決まったとき)、最後に、ユーザーに次に進められること (Issue や、メモの未完了の事項から) を伝えます。
 
 ### 対象
 
 - 手順 1 で調べた PR が、Dependabot が作った PR で、コミットがすべて Dependabot のもの (CI を直すコミットなどを足していないもの) のときは、ふりかえらずに飛ばします。`gh pr view <番号> --json author,commits` で、PR の作者 (`author.login`) が `app/dependabot` で、すべてのコミットの作者 (`commits[].authors[].login`) が `dependabot[bot]` のときです。
+- 手順 1 で調べた PR のブランチ名 (`headRefName`) が `retro/` で始まるときは、ふりかえらずに飛ばします。ふりかえりの反映の PR をふりかえると、そこから新しい反映の PR ができ、繰り返しが止まらなくなるためです。ユーザーがふりかえりを頼んだときだけ、ふりかえります。ふりかえりの反映と、ほかの作業を混ぜた PR は、`retro/` で始まらない名前にするので、ふりかえります (「提案の扱い」のとおりです)。
 - それ以外のときは、ふりかえります。
 
 ### 読むもの
@@ -101,6 +104,6 @@ supervisor が自分で `git status -sb`、`git branch -vv`、`git tag -l 'backu
 
 1 件ごとに、AskUserQuestion で「新しいブランチで反映する」「Issue にする」「何もしない」から選んでもらいます。1 回で聞ける問いは 4 つまでなので、多いときは分けて聞きます。
 
-- 新しいブランチで反映する: いつもの流れで進めます (helper がユーザーの確認を取って main からブランチを切る、worker が編集する、reviewer が確かめる、`/pre-pr-check`、`/squash-commits`、PR)。複数の提案を 1 つのブランチにまとめるかは、ユーザーに確かめます。ブランチを切る前に、ローカルの main が `origin/main` と同じであることを確かめます。手順 2 で main を更新しなかったときは、先に更新します。更新と切り替えは、ユーザーの確認を取ってから helper が行います。
+- 新しいブランチで反映する: いつもの流れで進めます (helper がユーザーの確認を取って main からブランチを切る、worker が編集する、reviewer が確かめる、`/pre-pr-check`、`/squash-commits`、PR)。複数の提案を 1 つのブランチにまとめるかは、ユーザーに確かめます。ブランチを切る前に、ローカルの main が `origin/main` と同じであることを確かめます。手順 2 で main を更新しなかったときは、先に更新します。更新と切り替えは、ユーザーの確認を取ってから helper が行います。ブランチの名前は `retro/<名前>` にします。この名前は、次回の後片付けで、この PR をふりかえらずに飛ばす印になります (手順 5 の「対象」)。ふりかえりの反映と、ほかの作業を 1 つの PR に混ぜるときは、`retro/` で始まらない名前にします。その PR は、マージしたあとに、ふつうにふりかえります。`retro/` のブランチは、`prototype` の試作や `research/<名前>` の使い捨てのブランチと違い、PR を作って main に入れるので、`/pre-pr-check` と `/squash-commits` も、ふつうのブランチと同じように行います。
 - Issue にする: 文面をユーザーに見せて確認を取ってから作ります (`.claude/rules/upstream-skills.md` の「Issue」の節)。
 - 何もしない: 何もしません。
