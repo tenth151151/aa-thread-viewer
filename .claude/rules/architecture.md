@@ -6,23 +6,44 @@
 
 MVVM + UDF (単方向データフロー) で作ります。
 
-- 画面ごとに ViewModel を置き、再利用する小さな UI の部品には置きません。状態や操作を持たない表示だけの画面 (今の `HomeScreen` など) には、ViewModel を置きません。状態や操作が要るようになったときに置きます。
+- ViewModel は画面ごとに置きます。置くのは、画面が状態を持つときか、データ層とやり取りする操作があるときです。再利用する小さな UI の部品には置きません。
+  - ここでの状態は、画面に表示するデータなどの、画面の UI state です。スクロールの位置や開け閉めのフラグのような UI 要素の状態 (`remember` や `rememberSaveable` で Composable に持つもの) は入りません。UI 要素の状態は Composable に置いてよく、それだけでは ViewModel を置く理由にしません。公式の state holder のページが、UI 要素の状態を Composable や普通のクラスの state holder に持たせるものとし、UI のロジックを UI の中に直接書くことも認めているためです。
 - ViewModel は `StateFlow<XxxUiState>` で UI state を公開します。
-- 画面からの操作は、ViewModel のメソッドで受けます。
+- 画面からの操作は、次のように受けます。
+  - ビジネスロジックが要らない画面の切り替えと、Activity の仕組み (ファイルの選択画面など) を開く操作は、ViewModel を持つ画面でも持たない画面でも、ラムダで呼び出し元に知らせます (今の `HomeScreen` の `onOpenDat` など)。ViewModel を持つ画面では、`XxxScreen` がこのラムダを呼び出し元から受け取り、ViewModel を経由せずに `XxxContent` へそのまま渡します。公式の UI events のページが、画面の切り替えを UI が扱うもの (UI behavior logic) とし、呼び出し元の Composable にラムダで知らせる例を示しているためです。Activity の仕組みを開く操作は、ViewModel に `Activity` や `Context` を渡さない決まりがあるので、UI で扱います。
+  - 画面を切り替える前にビジネスロジック (確かめごとなど) が要るときは、操作を ViewModel のメソッドで受け、結果を UI state に反映します。画面はその UI state を見て、切り替えます (呼び出し元のラムダを呼びます)。ViewModel は画面を切り替えず、UI にイベントも送りません。
+    - 切り替え (呼び出し元のラムダを呼ぶこと) は、Composable の本体で直接呼ばず、`LaunchedEffect` の中で呼びます。本体で呼ぶと、組み直すたびに呼ばれて、同じ画面が何度もバックスタックに積まれるためです。呼び出し元のラムダは、`rememberUpdatedState` で持ちます。公式の UI events のページの例も、この形です。
+    - 切り替えたあとに、戻ってきたときにまた切り替わらないようにします。ViewModel は画面のエントリーにスコープしていて、次の画面にいる間も残るので、ViewModel の UI state だけで切り替えを決めると、戻ってきたときにまた切り替わるためです。公式のページは、元の画面がバックスタックに残るときは、切り替えるかどうかを示す追加の状態を UI に持つとしています (画面の切り替えのロジックは UI の関心ごとであるため)。例では、操作を受けたときに `rememberSaveable` のフラグを true にし、フラグが true の間だけ UI state を見て切り替え、切り替える直前にフラグを false に戻しています。このフラグと上の `LaunchedEffect` は、UI state を集める `XxxScreen` に置き、状態を持たない `XxxContent` には置きません。
+  - それ以外の操作 (状態を変える操作、データ層とやり取りする操作) は、ViewModel のメソッドで受けます。ただし、UI 要素の状態だけを変える操作 (開け閉めの切り替えなど) は、Composable の中で扱ってかまいません。
 - UI state を sealed にするか data class にするかは、画面ごとに決めます。
 - ViewModel を持つ画面は、2 つの Composable に分けます。ViewModel を受け取る画面 (例: `XxxScreen(viewModel)`) と、UI state と操作のラムダだけを受け取る、状態を持たない Composable (例: `XxxContent(uiState, onXxx)`) です。プレビューは、状態を持たない Composable で行います。Compose の UI テストは、今は書きません (テストは JVM の JUnit 4 で動かしていて、エミュレータを使う計装テスト (`androidTest`) は使わない前提のためです)。UI テストが要るときは、ユーザーに相談します。
 - 画面 (`XxxScreen`) は、`collectAsStateWithLifecycle` (`androidx.lifecycle:lifecycle-runtime-compose`) で UI state を集め、状態を持たない Composable に渡します。このライブラリを足す時期は、「最初の ViewModel を作るときにすること」の節を、版は「画面の切り替え」の節を参照してください。
 
 ```kotlin
 @Composable
-fun XxxScreen(viewModel: XxxViewModel, modifier: Modifier = Modifier) {
+fun XxxScreen(
+    viewModel: XxxViewModel,
+    onNavigateToYyy: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    XxxContent(uiState = uiState, onXxx = viewModel::onXxx, modifier = modifier)
+    // 画面の切り替えのラムダは、呼び出し元から受け取り、ViewModel を通さずにそのまま渡す。
+    XxxContent(
+        uiState = uiState,
+        onXxx = viewModel::onXxx,
+        onNavigateToYyy = onNavigateToYyy,
+        modifier = modifier,
+    )
 }
 
 @Composable
-fun XxxContent(uiState: XxxUiState, onXxx: () -> Unit, modifier: Modifier = Modifier) {
-    // uiState を表示し、操作は onXxx などのラムダで通知する。ViewModel は参照しない。
+fun XxxContent(
+    uiState: XxxUiState,
+    onXxx: () -> Unit,
+    onNavigateToYyy: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // uiState を表示し、操作は onXxx や onNavigateToYyy などのラムダで通知する。ViewModel は参照しない。
     // modifier は、最上位のレイアウトに渡す。
 }
 ```
@@ -85,7 +106,7 @@ UI 層とデータ層の 2 層で作ります。
 
 本プロジェクトでは、次のどれかに当たるときを、移る目安にします。
 
-- ViewModel を持つ画面が 2 つ以上になったとき。数えるのは ViewModel を持つ画面だけです。表示だけの画面は数えません。ViewModel を持つ 2 つ目の画面を作る変更 (または、表示だけの画面に ViewModel を足して 2 つ目にする変更) が、ちょうど目安に当たり、必ず相談になります。
+- ViewModel を持つ画面が 2 つ以上になったとき。数えるのは ViewModel を持つ画面だけです。ViewModel を持たない画面は数えません。ViewModel を持つ 2 つ目の画面を作る変更 (または、ViewModel を持たない画面に ViewModel を足して 2 つ目にする変更) が、ちょうど目安に当たり、必ず相談になります。
 - WorkManager を使うとき。
 - 画面をまたいで共有するために作る ViewModel (Activity にスコープして複数の画面で使うものや、複数の画面のエントリーで共有するもの) を作るとき。
   - 公式は「ナビゲーションのバックスタックにスコープした ViewModel」を例に挙げています。本プロジェクトでは、画面をまたいで共有するものだけを数えます。どの ViewModel が共有に当たらないかは、「画面の切り替え」の節の「ViewModel のスコープ」にあります。
@@ -191,6 +212,8 @@ Fake を使います。
 - Guide to app architecture: https://developer.android.com/topic/architecture
 - Architecture recommendations: https://developer.android.com/topic/architecture/recommendations
 - UI layer: https://developer.android.com/topic/architecture/ui-layer
+- UI events: https://developer.android.com/topic/architecture/ui-layer/events
+- State holders and UI state: https://developer.android.com/topic/architecture/ui-layer/stateholders
 - Data layer: https://developer.android.com/topic/architecture/data-layer
 - Domain layer: https://developer.android.com/topic/architecture/domain-layer
 - Manual dependency injection: https://developer.android.com/training/dependency-injection/manual
