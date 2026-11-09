@@ -29,7 +29,7 @@
 #   3. AVD がなければ作る。
 #   4. adb server が、すべての口で待ち受けていなければ、待ち受ける形で起動し直す。
 #      待ち受けていれば、起動し直さずにそのまま使う。
-#   5. 指定した AVD のエミュレータが動いていなければ、空いているポートで起動する。
+#   5. 指定した AVD のエミュレータが動いていなければ、空いているポートで、コールドブート (-no-snapshot) で起動する。
 #      起動の完了は、そのエミュレータの serial (emulator-<ポート>) を指定して待つ。
 #      別の AVD のエミュレータが動いていても、指定した AVD は別に起動する。
 #
@@ -318,8 +318,10 @@ if ($avdSerial) {
         exit 1
     }
     $avdSerial = "emulator-$port"
-    Write-Info "エミュレータを起動します: $avd ($avdSerial)"
-    Start-Process -FilePath $emulator -ArgumentList '-avd', "`"$avd`"", '-port', "$port"
+    Write-Info "エミュレータをコールドブートで起動します: $avd ($avdSerial)"
+    # スナップショットからの再開 (クイックブート) に失敗して、画面が暗いまま操作を受け付けないことがある。
+    # -no-snapshot で、起動のときにスナップショットを読まず、終わるときにも保存しない。
+    Start-Process -FilePath $emulator -ArgumentList '-avd', "`"$avd`"", '-port', "$port", '-no-snapshot'
 }
 
 Write-Info '起動の完了を待ちます。最長で約 8 分かかります。'
