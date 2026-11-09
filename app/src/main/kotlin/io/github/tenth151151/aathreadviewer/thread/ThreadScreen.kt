@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.tenth151151.aathreadviewer.R
 import io.github.tenth151151.aathreadviewer.dat.Post
+import io.github.tenth151151.aathreadviewer.data.ThreadLoadFailure
 import io.github.tenth151151.aathreadviewer.ui.theme.AAThreadViewerTheme
 
 @Composable
@@ -42,7 +43,7 @@ fun ThreadContent(
 ) {
     when (uiState) {
         ThreadUiState.Loading -> CenteredMessage(stringResource(R.string.thread_loading), modifier)
-        ThreadUiState.Error -> CenteredMessage(stringResource(R.string.thread_error), modifier)
+        is ThreadUiState.Error -> CenteredMessage(stringResource(errorMessage(uiState.failure)), modifier)
         is ThreadUiState.Success -> PostList(uiState, modifier)
     }
 }
@@ -62,25 +63,32 @@ private fun PostList(
     uiState: ThreadUiState.Success,
     modifier: Modifier = Modifier,
 ) {
+    val heading = headingText(uiState.heading)
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = WindowInsets.safeDrawing.asPaddingValues(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        uiState.title?.let { title ->
-            item {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(16.dp),
-                )
-            }
+        item {
+            Text(
+                text = heading,
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(16.dp),
+            )
         }
         items(uiState.posts, key = { it.number }) { post ->
             PostItem(post)
         }
     }
 }
+
+@Composable
+private fun headingText(heading: ThreadHeading): String =
+    when (heading) {
+        is ThreadHeading.Title -> heading.text
+        is ThreadHeading.FileName -> heading.name
+        ThreadHeading.None -> stringResource(R.string.thread_untitled)
+    }
 
 @Composable
 private fun PostItem(
@@ -111,7 +119,7 @@ private fun ThreadContentPreview() {
         ThreadContent(
             uiState =
                 ThreadUiState.Success(
-                    title = "Sample thread",
+                    heading = ThreadHeading.Title("Sample thread"),
                     posts =
                         listOf(
                             Post.Readable(1, "Name", "", "2026/11/08 12:00:00 ID:abcd1234", "Body line 1\nBody line 2"),
@@ -134,6 +142,50 @@ private fun ThreadContentLoadingPreview() {
 @Composable
 private fun ThreadContentErrorPreview() {
     AAThreadViewerTheme {
-        ThreadContent(uiState = ThreadUiState.Error)
+        ThreadContent(uiState = ThreadUiState.Error(ThreadLoadFailure.CannotOpen))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ThreadContentNotDatPreview() {
+    AAThreadViewerTheme {
+        ThreadContent(uiState = ThreadUiState.Error(ThreadLoadFailure.NotDat))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ThreadContentTooLargePreview() {
+    AAThreadViewerTheme {
+        ThreadContent(uiState = ThreadUiState.Error(ThreadLoadFailure.TooLarge))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ThreadContentFileNamePreview() {
+    AAThreadViewerTheme {
+        ThreadContent(
+            uiState =
+                ThreadUiState.Success(
+                    heading = ThreadHeading.FileName("1234567890.dat"),
+                    posts = listOf(Post.Readable(1, "Name", "", "2026/11/08 12:00:00 ID:abcd1234", "Body")),
+                ),
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ThreadContentUntitledPreview() {
+    AAThreadViewerTheme {
+        ThreadContent(
+            uiState =
+                ThreadUiState.Success(
+                    heading = ThreadHeading.None,
+                    posts = listOf(Post.Readable(1, "Name", "", "2026/11/08 12:00:00 ID:abcd1234", "Body")),
+                ),
+        )
     }
 }

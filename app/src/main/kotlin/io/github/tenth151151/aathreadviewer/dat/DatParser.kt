@@ -27,12 +27,13 @@ object DatParser {
                     )
                 }
             }
+        // 空白だけかは、タグを外して文字参照を戻したあとで判定する。
         val title =
             rows
                 .firstOrNull()
                 ?.getOrNull(TITLE_INDEX)
-                ?.takeIf { it.isNotBlank() }
                 ?.let { unescape(stripTags(it)) }
+                ?.takeIf { it.isNotBlank() }
         return DatThread(title = title, posts = posts)
     }
 

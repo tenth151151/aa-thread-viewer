@@ -175,6 +175,10 @@ io/github/tenth151151/aathreadviewer/
 │   ├── DefaultThreadRepository.kt
 │   ├── DatSource.kt        (interface)
 │   ├── ContentResolverDatSource.kt
+│   ├── DatFile.kt          (データ源が返す、バイト列とファイル名)
+│   ├── LoadedThread.kt     (Repository が返す、読み込んだスレッド)
+│   ├── ReadBytesWithLimit.kt (上限つきでバイト列を読む)
+│   ├── ThreadLoadException.kt (読めなかった原因と、上限を超えたときの例外)
 │   └── BoardType.kt
 ├── home/                   (ViewModel を持たない)
 │   ├── HomeKey.kt
@@ -182,6 +186,7 @@ io/github/tenth151151/aathreadviewer/
 └── thread/
     ├── ThreadKey.kt
     ├── ThreadScreen.kt
+    ├── ThreadErrorMessage.kt (読めなかった原因から文字列の ID を返す)
     ├── ThreadViewModel.kt
     └── ThreadUiState.kt
 ```

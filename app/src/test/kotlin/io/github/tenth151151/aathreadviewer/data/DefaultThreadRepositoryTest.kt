@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
@@ -55,7 +56,7 @@ class DefaultThreadRepositoryTest {
                 bytes(0x87, 0x40) + ascii("<>m<>d<>") + bytes(0xFB, 0xFC) + ascii("<>t\n")
             val repository = repository(FakeDatSource(dat))
 
-            val thread = repository.loadThread("content://example/thread.dat").getOrThrow()
+            val thread = repository.loadThread("content://example/thread.dat").getOrThrow().thread
 
             assertEquals("t", thread.title)
             assertEquals(
@@ -64,34 +65,41 @@ class DefaultThreadRepositoryTest {
             )
         }
 
+    private suspend fun failureOf(repository: ThreadRepository): ThreadLoadFailure {
+        val result = repository.loadThread("content://example/thread.dat")
+        return (result.exceptionOrNull() as ThreadLoadException).failure
+    }
+
     @Test
-    fun `データ源が読めないときはエラーを返す`() =
+    fun `データ源が開けないときは開けないエラーを返す`() =
         runTest {
             val repository = repository(FakeDatSource(error = IOException("読めません")))
 
-            val result = repository.loadThread("content://example/thread.dat")
-
-            assertTrue(result.isFailure)
+            assertEquals(ThreadLoadFailure.CannotOpen, failureOf(repository))
         }
 
     @Test
-    fun `1行もdatとして読めないときはエラーを返す`() =
+    fun `データ源が大きすぎると言うときは大きすぎるエラーを返す`() =
+        runTest {
+            val repository = repository(FakeDatSource(error = FileTooLargeException("大きすぎます")))
+
+            assertEquals(ThreadLoadFailure.TooLarge, failureOf(repository))
+        }
+
+    @Test
+    fun `1行もdatとして読めないときはdatとして読めないエラーを返す`() =
         runTest {
             val repository = repository(FakeDatSource(ascii("not a dat\nanother line\n")))
 
-            val result = repository.loadThread("content://example/thread.dat")
-
-            assertTrue(result.isFailure)
+            assertEquals(ThreadLoadFailure.NotDat, failureOf(repository))
         }
 
     @Test
-    fun `空のファイルはエラーを返す`() =
+    fun `空のファイルはdatとして読めないエラーを返す`() =
         runTest {
             val repository = repository(FakeDatSource(ByteArray(0)))
 
-            val result = repository.loadThread("content://example/thread.dat")
-
-            assertTrue(result.isFailure)
+            assertEquals(ThreadLoadFailure.NotDat, failureOf(repository))
         }
 
     @Test
@@ -100,9 +108,30 @@ class DefaultThreadRepositoryTest {
             val dat = ascii("a<>b<>c<>d<>t\nbroken line\n")
             val repository = repository(FakeDatSource(dat))
 
-            val thread = repository.loadThread("content://example/thread.dat").getOrThrow()
+            val thread = repository.loadThread("content://example/thread.dat").getOrThrow().thread
 
             assertEquals(listOf(Post.Readable(1, "a", "b", "c", "d"), Post.Unreadable(2)), thread.posts)
+        }
+
+    @Test
+    fun `データ源が返したファイル名をスレッドといっしょに返す`() =
+        runTest {
+            val repository = repository(FakeDatSource(ascii("a<>b<>c<>d<>t\n"), fileName = "thread.dat"))
+
+            val loaded = repository.loadThread("content://example/thread.dat").getOrThrow()
+
+            assertEquals("thread.dat", loaded.fileName)
+            assertEquals("t", loaded.thread.title)
+        }
+
+    @Test
+    fun `データ源がファイル名を返さないときはファイル名がない`() =
+        runTest {
+            val repository = repository(FakeDatSource(ascii("a<>b<>c<>d<>t\n"), fileName = null))
+
+            val loaded = repository.loadThread("content://example/thread.dat").getOrThrow()
+
+            assertNull(loaded.fileName)
         }
 
     @Test
@@ -127,6 +156,12 @@ class DefaultThreadRepositoryTest {
             advanceUntilIdle()
 
             assertTrue(result.isCompleted)
-            assertEquals("t", result.await().getOrThrow().title)
+            assertEquals(
+                "t",
+                result
+                    .await()
+                    .getOrThrow()
+                    .thread.title,
+            )
         }
 }
