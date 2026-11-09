@@ -357,6 +357,17 @@ class DatParserTest {
     }
 
     @Test
+    fun `タグを外したあとに空白だけになるタイトルはタイトルがない`() {
+        assertNull(DatParser.parse("a<>a@<>d1<>b1<><b></b>").title)
+        assertNull(DatParser.parse("a<>a@<>d1<>b1<><b> </b>").title)
+    }
+
+    @Test
+    fun `文字参照を戻したあとに空白だけになるタイトルはタイトルがない`() {
+        assertNull(DatParser.parse("a<>a@<>d1<>b1<>&#32;").title)
+    }
+
+    @Test
     fun `空白以外を含むタイトルは前後の空白をそのまま持つ`() {
         val thread = DatParser.parse("a<>a@<>d1<>b1<> T ")
 

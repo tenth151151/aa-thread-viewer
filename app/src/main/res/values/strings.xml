@@ -2,7 +2,10 @@
     <string name="app_name">AA Thread Viewer</string>
     <string name="home_open_dat">dat を開く</string>
     <string name="thread_loading">読み込み中です…</string>
-    <string name="thread_error">スレッドを読めませんでした。</string>
+    <string name="thread_error_cannot_open">ファイルを開けませんでした。</string>
+    <string name="thread_error_not_dat">dat として読めるレスがありませんでした。</string>
+    <string name="thread_error_too_large">ファイルが大きすぎるため、読み込めませんでした。</string>
+    <string name="thread_untitled">タイトルなし</string>
     <string name="thread_post_header">%1$d  %2$s  %3$s</string>
     <string name="thread_unreadable_post">%1$d  このレスは読めませんでした。</string>
 </resources>
