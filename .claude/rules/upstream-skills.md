@@ -7,7 +7,7 @@
 - プラグインは `mattpocock-skills@mattpocock` で、マーケットプレイスの版はタグ `v1.3.2` です。設定は `.claude/settings.json` の `extraKnownMarketplaces` と `enabledPlugins` にあります。
 - `autoUpdate` は使いません (`false`)。タグで固定して、読んだ内容が知らないうちに変わりにくくするためです。タグは付け替えられることがあるので、完全ではありません。
 - コンテナの作成時には、`.devcontainer/bin/post-create.sh` が同じ版を `--scope project` でインストールします。Dockerfile で `jq` を入れておらず、ベースイメージにあるとは限らないため、版を設定から読まず、スクリプトの `UPSTREAM_SKILLS_REF` に書いています。
-- 版を上げるときは、`.claude/settings.json` の `ref` と、`.devcontainer/bin/post-create.sh` の `UPSTREAM_SKILLS_REF` と、`README.md` の版を変える PR にします。上流の差分を読み、このファイルと `docs/agents/` の内容が、新しい版に合うかを確かめます。
+- 版を上げるときは、`.claude/settings.json` の `ref` と、`.devcontainer/bin/post-create.sh` の `UPSTREAM_SKILLS_REF` と、`README.md` の版を変える PR にします。上流の差分を読み、このファイルと `docs/agents/` の内容が、新しい版に合うかを確かめます。「ユーザーしか呼べないスキル」の区分も、各 `SKILL.md` の frontmatter で確かめ直します。
 - 版を上げたとき、`claude plugin install` は、すでに入っていれば何もせず、記録の版を変えません。記録と起動時に読み込まれる版は、`claude plugin update` で新しくなります。そのため、スクリプトは `install` のあとに `update` も実行します。
 
 ## このプロジェクトのルールと流れを正にする
@@ -33,6 +33,19 @@
 - `tdd`、`code-review`、`pr`、`implement`、`implement-spec` は、`.claude/settings.json` の deny でも止めています。`setup-matt-pocock-skills` も、deny で止めています (理由は上の「設定」の項目です)。このほか、モデルが自分で呼べるのに使うスキルの一覧にない `wizard` と `writing-for-agents` も、deny で止めています。
 - deny には、スキルごとに 2 つの形を書きます。引数なしの `Skill(mattpocock-skills:tdd)` と、引数つきの `Skill(mattpocock-skills:tdd *)` です。前者は名前の完全一致、後者は引数つきの呼び出しの前方一致です。名前空間つきの形だけで書きます。名前だけの形 (`Skill(tdd)` など) は、このプロジェクトの `/tdd` や、組み込みの `code-review` まで止めるおそれがあるので、書きません。
 - 上の表と一覧にないスキルは、使う前にユーザーに相談します。deny で止めているスキルを使いたいときも、deny を外すかをユーザーに相談します。
+
+### ユーザーしか呼べないスキル
+
+各スキルの `SKILL.md` の frontmatter に `disable-model-invocation: true` があるスキルは、モデル (Claude) から Skill ツールで呼べません。上流の README は、これを「User-invoked」(ユーザーが `/grill-me` のように打ったときだけ届く) と呼び、キーがないスキルを「Model-invoked」(ユーザーも、タスクに合えばエージェントも呼べる) と呼んでいます。`mattpocock-skills` v1.3.2 の区分は、次のとおりです。
+
+| 区分 | 使うスキル |
+|---|---|
+| ユーザーしか呼べない | `triage`、`to-spec`、`to-tickets`、`wayfinder`、`grill-with-docs`、`grill-me`、`wait-what`、`handoff`、`retro` |
+| モデルも呼べる | `grilling`、`domain-modeling`、`codebase-design`、`diagnosing-bugs`、`research`、`prototype` |
+
+使わないスキルのうち、`implement`、`implement-spec`、`setup-matt-pocock-skills` も、ユーザーしか呼べません。
+
+ユーザーしか呼べないスキルを使いたいときは、エージェントは自分で呼ぼうとしません。サブエージェント (worker、helper、reviewer など) は、使いたいスキルを supervisor に伝えます。supervisor が、ユーザーに、プラグインの名前空間つきのコマンド (例: `/mattpocock-skills:triage`) を打ってもらうよう頼みます。名前空間なしの形 (`/triage`) で呼べるかは確かめていないので、名前空間つきの形だけを案内します。
 
 ## Issue
 
