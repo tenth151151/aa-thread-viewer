@@ -16,12 +16,26 @@ description: 起動済みのエミュレータにアプリを入れて、dat を
 
 ## 1. つながるかを確かめる
 
+まず、`adb` があるかと、`ADB_SERVER_SOCKET` を確かめます。
+
 ```bash
 command -v adb
+echo "ADB_SERVER_SOCKET=${ADB_SERVER_SOCKET:-}"
+```
+
+- `adb` がないときは、設定を変えずに止め、つながらなかったと伝えます。つなぎ方は `README.md` を案内します。`ADB_SERVER_SOCKET` などの環境や、`.devcontainer/` の設定は触りません。
+- `ADB_SERVER_SOCKET` が空のときは、`adb` を実行せず、設定を変えずに止め、つながらなかったと伝えます。`ADB_SERVER_SOCKET` などの環境や、`.devcontainer/` の設定は触りません。空のまま `adb` を実行すると、ホストの adb server を使わずに、コンテナの中で adb の daemon が起動するためです。つなぎ方は、`README.md` の `.devcontainer/.env` の手順を案内します。
+
+`adb` があり、`ADB_SERVER_SOCKET` が空でないときだけ、次を実行します。
+
+```bash
 adb devices
 ```
 
-- `adb` がないとき、または `adb devices` の一覧に `device` の行が 1 つもないときは、設定を変えずに止め、つながらなかったと伝えます。`ADB_SERVER_SOCKET` などの環境や、`.devcontainer/` の設定は触りません。つなぎ方は `README.md` を案内します。
+- `adb devices` の一覧に `device` の行が 1 つもないときは、設定を変えずに止め、つながらなかったと伝えます。`ADB_SERVER_SOCKET` などの環境や、`.devcontainer/` の設定は触りません。つなぎ方は `README.md` を案内します。
+  - ホストでエミュレータを起動し直してもらうときは、ホストの Windows で `bin\windows\setup-emulator.bat` を実行するよう伝えます。このバッチが呼ぶ `setup-emulator.ps1` も含め、2 つのファイルは、`bin/windows/` を管理していないブランチに切り替えると、作業ツリーから消えます。その 2 つのファイルにコミットしていない変更があるときは、git が切り替えを断ります。ファイルが見つからないときは、`main` など、ファイルがあるブランチに切り替えてから実行するよう伝えます。
+    - ブランチを切り替えるのは、ユーザーか、supervisor の指示を受けた helper です。helper が切り替えるのは、ユーザーの確認を取ってからです。このスキルを使うエージェントは、自分では切り替えません。
+    - 切り替えたときは、手順 2 に進む前に、`git branch --show-current` で、確かめるブランチに戻ったことを確かめます。戻っていないまま進むと、別のブランチのコードをビルドして入れ、確かめるブランチの結果として報告してしまうためです。戻っていないときは、先に進まずに止めて伝えます。
 - 一覧に `offline` や `unauthorized` の行があるときも、同じように止めて伝えます。
 - 端末が複数あるときは、`-s <シリアル>` を以降のすべての `adb` に付けます。
 
