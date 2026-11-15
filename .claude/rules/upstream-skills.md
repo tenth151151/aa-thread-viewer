@@ -109,7 +109,7 @@
 
 ## 編集とコミット
 
-- supervisor は編集できません。上流のスキルが作ったり書き換えたりするファイル (`GLOSSARY.md`、`docs/adr/`、`.out-of-scope/` など) は、すべて worker に頼み、reviewer を通します。
+- supervisor は、ふりかえりの記録 (`.tmp/retro-log/`) のほかは編集できません。上流のスキルが作ったり書き換えたりするファイル (`GLOSSARY.md`、`docs/adr/`、`.out-of-scope/` など) は、すべて worker に頼み、reviewer を通します。
 - ブランチを作るのと切り替えるのは、supervisor の指示で helper だけが、ユーザーの確認を取ってから行います。ほかのサブエージェント (worker、reviewer、上流のスキルが起こすものを含む) は、ブランチを作らず、切り替えず、コミットしません。
 - コミットは、supervisor の指示で helper が、ユーザーの確認を取ってから行います。`prototype` の使い捨てのブランチと、`research/<名前>` のブランチも同じです。
 
