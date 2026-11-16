@@ -5,8 +5,9 @@
 開発環境は devcontainer です。JDK と Android SDK のバージョンは、リポジトリのルートの `versions.properties` にまとめています。devcontainer、CI、Gradle がこのファイルを読むので、バージョンを変えるときは、このファイルだけを書き換えます。JDK は `JDK_VERSION` と `JDK_SDKMAN_ID` の両方を直します。`targetSdk` と `minSdk` は、アプリの挙動に関わる設定なので、`app/build.gradle.kts` に書いています。
 
 ```bash
-# CI と同じ確認をする (全角の丸括弧の検査、単体テスト、Android Lint、format のチェック、カバレッジの基準値の検査、デバッグビルド、カバレッジのレポートの作成)。
+# CI と同じ確認をする (全角の丸括弧の検査、Windows のスクリプトの文字コードの検査、単体テスト、Android Lint、format のチェック、カバレッジの基準値の検査、デバッグビルド、カバレッジのレポートの作成)。
 bash bin/check-fullwidth-parens.sh
+bash bin/check-windows-script-encoding.sh
 ./gradlew check assembleDebug koverLog koverXmlReport koverHtmlReport --continue
 
 # format の崩れを自動で直す。
@@ -73,7 +74,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - Docker Engine を WSL2 の中で動かし (Docker Desktop ではない)、WSL のネットワークが NAT モードのとき、`ADB_SERVER_SOCKET` に `host.docker.internal` (`--add-host` で結んだ host-gateway) は使えません。`host.docker.internal` では届きませんでした (`Connection refused` でした)。host-gateway は WSL の中の docker0 の `172.17.0.1` で、Windows のアドレスではありません。Windows の vEthernet (WSL) の IPv4 アドレスを使うと、コンテナの `adb devices` にエミュレータが出ました (Windows 10.0.26300、adb 37.0.1 で確かめました)。WSL2 の mirrored モードと Docker Desktop では、届く宛先を確かめていません。
 - Windows を再起動すると、vEthernet (WSL) のアドレスが変わることがあります。`.devcontainer/.env` はコンテナの作成時にだけ読まれるので、書き直してコンテナを作り直してください。作り直さずに試すときは、コンテナのシェルで `export ADB_SERVER_SOCKET=tcp:<Windows のアドレス>:5037` とします。
 - コンテナの `adb` は、Dockerfile が platform-tools の版を固定していないので、コンテナを作った時点の最新の版です。ホストとコンテナの `adb version` を比べてください。版が違っても、つながるかは、まだ確かめていません。つながらないときは、ホストの platform-tools を更新するか、コンテナを作り直して、版をそろえてください。
-- `.ps1` は、Windows PowerShell 5.1 で日本語が化けないように、BOM 付きの UTF-8 で保存します。`.bat` は、cmd.exe が日本語の行を読み違えるため、ASCII の文字だけで書きます。文字化けしたり、途中で止まったりしたときは、この文字コードの扱いを確かめてください。
+- `.ps1` は、Windows PowerShell 5.1 で日本語が化けないように、BOM 付きの UTF-8 で保存します。`.bat` は、cmd.exe が日本語の行を読み違えるため、ASCII の文字だけで書きます。文字化けしたり、途中で止まったりしたときは、この文字コードの扱いを確かめてください。この決まりは、CI で `bin/check-windows-script-encoding.sh` が検査します。手元でも `bash bin/check-windows-script-encoding.sh` で確かめられます。BOM のない `.ps1` が見つかったら BOM 付きの UTF-8 で保存し直し、ASCII ではない文字 (BOM を含む) を含む `.bat` が見つかったら、その文字を消してください。
 
 ### Claude Code のスキル
 

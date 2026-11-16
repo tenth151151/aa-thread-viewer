@@ -18,12 +18,13 @@ worker の作業 → reviewer の確認 → helper のコミット → **`/pre-p
 
 ```bash
 git fetch origin
-git fetch origin main:main               # ローカルの main を origin/main まで進める。
-git status --short                       # 未コミットの変更が無いこと。
-bash bin/check-fullwidth-parens.sh       # 全角の丸括弧が無いこと。
+git fetch origin main:main                 # ローカルの main を origin/main まで進める。
+git status --short                         # 未コミットの変更が無いこと。
+bash bin/check-fullwidth-parens.sh         # 全角の丸括弧が無いこと。
+bash bin/check-windows-script-encoding.sh  # .ps1 が BOM 付きの UTF-8 で、.bat が ASCII だけであること。
 git branch --show-current
-git log --oneline origin/main..HEAD      # 確認の対象。
-git diff --name-only origin/main...HEAD  # 変更されたファイル。
+git log --oneline origin/main..HEAD        # 確認の対象。
+git diff --name-only origin/main...HEAD    # 変更されたファイル。
 ```
 
 - `git fetch origin` のあとは、すべて `origin/main` と比べます。このリポジトリでは PR を GitHub でマージするので、ローカルの `main` は古いままのことが多いためです。`git fetch origin` で更新した `origin/main` と比べれば、ローカルの `main` の新しさに左右されません。
@@ -33,6 +34,8 @@ git diff --name-only origin/main...HEAD  # 変更されたファイル。
 - 未コミットの変更がある場合は、先にコミットするかをユーザーに聞きます。差分に含まれない変更は、確認の対象になりません。
 - `bin/check-fullwidth-parens.sh` が 1 で終わった (全角の丸括弧が見つかった) ときは、`/code-review` より先に、見つかった箇所を `.claude/rules/writing-style.md` の決まりで半角に直します。コメント、ドキュメント、Claude への指示のファイルの中なら、文体のルールへの違反の修正なので、自明な修正として扱います。コードの文字列の中は、手順 4 の線引きで仕分けます。確認が必要なものは、ユーザーに聞いてから直します。直すときは手順 5 と同じ流れ (worker → reviewer → helper のコミット) で行い、コミットしたあとにスクリプトをもう一度実行して、0 で終わることを確かめてから手順 2 に進みます。
 - `bin/check-fullwidth-parens.sh` が 2 以上で終わったときは、検査そのものが失敗しており、結果が分かりません。問題なしとは扱わず、先に進まずユーザーに伝えます。
+- `bin/check-windows-script-encoding.sh` が 1 で終わった (決まりに反するファイルが見つかった) ときは、`/code-review` より先に直します。`.ps1` を BOM 付きの UTF-8 で保存し直すことと、`.bat` から ASCII ではない文字を消すことは、挙動が変わる修正なので、手順 4 の線引きの「確認が必要」として、ユーザーに聞いてから直します。直すときは手順 5 と同じ流れ (worker → reviewer → helper のコミット) で行い、コミットしたあとにスクリプトをもう一度実行して、0 で終わることを確かめてから手順 2 に進みます。
+- `bin/check-windows-script-encoding.sh` が 2 以上で終わったときは、検査そのものが失敗しており、結果が分かりません。問題なしとは扱わず、先に進まずユーザーに伝えます。
 - 最後に、差分に、コンテナで動かせないファイルがあるかを判断します。コンテナでは、Windows PowerShell でスクリプトを実行できず、コンテナの作り直しもできないため、確かめずに PR を出すおそれがあるためです。
 
   ```bash
