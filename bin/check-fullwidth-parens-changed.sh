@@ -29,7 +29,9 @@
 
 set -euo pipefail
 
-trap 'rc=$?; { echo "[check-fullwidth-parens-changed] 予期しないエラーで終了しました (終了コード: $rc)。" >&2; } 2>/dev/null || true; if [ "$rc" -ge 2 ]; then exit "$rc"; fi; exit 2' ERR
+# メッセージは標準エラー出力に出す。リダイレクトは左から順に効くので、先に >&2 で
+# 標準出力を標準エラー出力へ向けてから、2>/dev/null で echo 自身のエラーだけを捨てる。
+trap 'rc=$?; echo "[check-fullwidth-parens-changed] 予期しないエラーで終了しました (終了コード: $rc)。" >&2 2>/dev/null || true; if [ "$rc" -ge 2 ]; then exit "$rc"; fi; exit 2' ERR
 
 # git のエラーメッセージを英語に固定する (下の rev-parse の判定で使う)。
 export LC_ALL=C

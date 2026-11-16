@@ -31,7 +31,9 @@ set -euo pipefail
 
 # 予期しない失敗で止まるときも、終了コードを 2 以上にそろえる。
 # 1 は「全角が見つかった」専用なので、失敗と区別できなくなるのを防ぐ。
-trap 'rc=$?; { echo "[check-fullwidth-parens] 予期しないエラーで終了しました (終了コード: $rc)。" >&2; } 2>/dev/null || true; if [ "$rc" -ge 2 ]; then exit "$rc"; fi; exit 2' ERR
+# メッセージは標準エラー出力に出す。リダイレクトは左から順に効くので、先に >&2 で
+# 標準出力を標準エラー出力へ向けてから、2>/dev/null で echo 自身のエラーだけを捨てる。
+trap 'rc=$?; echo "[check-fullwidth-parens] 予期しないエラーで終了しました (終了コード: $rc)。" >&2 2>/dev/null || true; if [ "$rc" -ge 2 ]; then exit "$rc"; fi; exit 2' ERR
 
 # バイト列で探すので、locale に左右されないようにする。
 # git のエラーメッセージを英語に固定する役目もある (下の rev-parse の判定で使う)。
