@@ -1,5 +1,6 @@
 package io.github.tenth151151.aathreadviewer.data
 
+import io.github.tenth151151.aathreadviewer.dat.DatParser
 import io.github.tenth151151.aathreadviewer.dat.Post
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -13,7 +14,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.io.InputStream
+import java.io.StringReader
 import kotlin.coroutines.CoroutineContext
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -135,24 +139,43 @@ class DefaultThreadRepositoryTest {
         }
 
     @Test
-    fun `文字列への変換と解析は渡されたディスパッチャーで行う`() =
+    fun `読み込みと解析は渡されたディスパッチャーで行う`() =
         runTest {
             // 仕事を溜めるだけで、手で動かすまで実行しないディスパッチャーを渡す。
             // テスト用のディスパッチャーは、runTest とスケジューラーを共有しないと使えず、共有すると advanceUntilIdle が両方を進めてしまう。
             // そのため、渡したディスパッチャーを使わなくても通るテストになってしまうので、使わない。
             val workerDispatcher = ManualDispatcher()
+            var readStarted = false
             val repository =
                 DefaultThreadRepository(
-                    datSource = FakeDatSource(ascii("a<>b<>c<>d<>t\n")),
+                    datSource =
+                        FakeDatSource(
+                            streamFactory = {
+                                object : ByteArrayInputStream(ascii("a<>b<>c<>d<>t\n")) {
+                                    override fun read(
+                                        b: ByteArray,
+                                        off: Int,
+                                        len: Int,
+                                    ): Int {
+                                        readStarted = true
+                                        return super.read(b, off, len)
+                                    }
+                                }
+                            },
+                        ),
                     boardType = BoardType.ZeroChannelPlus,
                     dispatcher = workerDispatcher,
                 )
 
             val result = async { repository.loadThread("content://example/thread.dat") }
             advanceUntilIdle()
-            assertFalse(result.isCompleted)
-
-            workerDispatcher.runAll()
+            // 確認が失敗しても、溜まった仕事を流してから終わる。流さないと、取り消しが届かず、テストが終わらなくなる。
+            try {
+                assertFalse(result.isCompleted)
+                assertFalse(readStarted)
+            } finally {
+                workerDispatcher.runAll()
+            }
             advanceUntilIdle()
 
             assertTrue(result.isCompleted)
@@ -163,5 +186,91 @@ class DefaultThreadRepositoryTest {
                     .getOrThrow()
                     .thread.title,
             )
+        }
+
+    /** [first] を 1 回目の読み込みで返し、2 回目の読み込みで [error] を投げるストリーム。 */
+    private class FailingAfterFirstReadInputStream(
+        private val first: ByteArray,
+        private val error: Exception,
+    ) : InputStream() {
+        private var position = 0
+
+        override fun read(): Int = throw UnsupportedOperationException()
+
+        override fun read(
+            b: ByteArray,
+            off: Int,
+            len: Int,
+        ): Int {
+            if (position >= first.size) throw error
+            val count = minOf(len, first.size - position)
+            first.copyInto(b, off, position, position + count)
+            position += count
+            return count
+        }
+    }
+
+    @Test
+    fun `解析の途中で上限を超えたときは途中までのスレッドを返さず大きすぎるエラーを返す`() =
+        runTest {
+            val line = ascii("a<>b<>c<>d<>t\n")
+            val repository =
+                repository(
+                    FakeDatSource(streamFactory = { FailingAfterFirstReadInputStream(line, FileTooLargeException("大きすぎます")) }),
+                )
+
+            val result = repository.loadThread("content://example/thread.dat")
+
+            assertTrue(result.isFailure)
+            assertEquals(ThreadLoadFailure.TooLarge, (result.exceptionOrNull() as ThreadLoadException).failure)
+        }
+
+    @Test
+    fun `読んでいる途中のIOExceptionは開けないエラーを返す`() =
+        runTest {
+            val line = ascii("a<>b<>c<>d<>t\n")
+            val repository =
+                repository(
+                    FakeDatSource(streamFactory = { FailingAfterFirstReadInputStream(line, IOException("途切れました")) }),
+                )
+
+            assertEquals(ThreadLoadFailure.CannotOpen, failureOf(repository))
+        }
+
+    @Test
+    fun `ブロックの中で起きたIOException以外の例外は捕まえずに投げる`() =
+        runTest {
+            val line = ascii("a<>b<>c<>d<>t\n")
+            val repository =
+                repository(
+                    FakeDatSource(streamFactory = { FailingAfterFirstReadInputStream(line, IllegalStateException("想定外")) }),
+                )
+
+            val thrown = runCatching { repository.loadThread("content://example/thread.dat") }.exceptionOrNull()
+
+            assertTrue(thrown is IllegalStateException)
+        }
+
+    @Test
+    fun `1行が長すぎるときはdatとして読めないエラーを返す`() =
+        runTest {
+            val repository = repository(FakeDatSource(bytes = ascii("a".repeat(1024 * 1024 + 1))))
+
+            assertEquals(ThreadLoadFailure.NotDat, failureOf(repository))
+        }
+
+    @Test
+    fun `変換できないバイトは文字列に変換するときと同じ置き換え文字になる`() =
+        runTest {
+            // 先頭バイトのあとが不正なバイト、先頭バイトだけで終わるバイト列、どの文字にもならないバイトを含む。
+            val body = bytes(0x81, 0x20, 0x41, 0xFF, 0x82, 0x40, 0xFC)
+            val dat = ascii("a<>b<>c<>") + body + ascii("<>t\n") + bytes(0x81)
+            val repository = repository(FakeDatSource(dat))
+
+            val expected = DatParser.parse(StringReader(String(dat, BoardType.ZeroChannelPlus.charset)))
+            val actual = repository.loadThread("content://example/thread.dat").getOrThrow().thread
+
+            assertEquals(expected, actual)
+            assertTrue((actual.posts[0] as Post.Readable).body.contains('�'))
         }
 }

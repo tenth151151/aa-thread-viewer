@@ -1,9 +1,17 @@
 package io.github.tenth151151.aathreadviewer.data
 
 import java.io.IOException
+import java.io.InputStream
 
-/** dat のバイト列とファイル名を返すデータ源。 */
+/** dat のストリームとファイル名を渡すデータ源。 */
 interface DatSource {
-    /** [uri] の中身とファイル名を返す。読めないときは [IOException] を投げる。ファイル名が取れないことは、失敗にしない。 */
-    suspend fun read(uri: String): DatFile
+    /**
+     * [uri] を開き、ストリームとファイル名を [block] に渡して、[block] の結果を返す。ストリームは、[block] が終わったら閉じる。
+     * ファイル名は、取れないときは null。取れないことは、失敗にしない。
+     * 開けないときは [IOException] を投げる。[block] の中で起きた例外は、そのまま投げる。
+     */
+    suspend fun <T> read(
+        uri: String,
+        block: (stream: InputStream, fileName: String?) -> T,
+    ): T
 }

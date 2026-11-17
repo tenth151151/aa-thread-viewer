@@ -2,14 +2,97 @@ package io.github.tenth151151.aathreadviewer.dat
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.Reader
+import java.io.StringReader
 
 class DatParserTest {
+    private fun parseText(text: String): DatThread = DatParser.parse(StringReader(text))
+
+    private fun parseChunked(
+        text: String,
+        chunkSize: Int,
+    ): DatThread = DatParser.parse(ChunkedReader(text, chunkSize))
+
+    @Test
+    fun `読み込みの境目でCRとLFが分かれても行末として扱う`() {
+        val text = "a<>a@<>d1<>b1<>T\r\nb<>b@<>d2<>b2<>\r\n"
+        val expected =
+            listOf(
+                Post.Readable(1, "a", "a@", "d1", "b1"),
+                Post.Readable(2, "b", "b@", "d2", "b2"),
+            )
+
+        // 1 文字ずつ読むと、すべての CR と LF が別の読み込みになる。
+        for (chunkSize in 1..4) {
+            val thread = parseChunked(text, chunkSize)
+
+            assertEquals("chunkSize=$chunkSize", "T", thread.title)
+            assertEquals("chunkSize=$chunkSize", expected, thread.posts)
+        }
+    }
+
+    @Test
+    fun `読み込みの境目が欄の中の単独のCRの前後でもレスを分けない`() {
+        val text = "a<>a@<>d1<>b\r1<>T\nb<>b@<>d2<>b2<>"
+        val expected =
+            listOf(
+                Post.Readable(1, "a", "a@", "d1", "b\r1"),
+                Post.Readable(2, "b", "b@", "d2", "b2"),
+            )
+
+        for (chunkSize in 1..4) {
+            assertEquals("chunkSize=$chunkSize", expected, parseChunked(text, chunkSize).posts)
+        }
+    }
+
+    @Test
+    fun `改行のないまま終わる最後の行の末尾のCRも外す`() {
+        for (chunkSize in 1..3) {
+            val thread = parseChunked("a<>a@<>d1<>b1<>T\r", chunkSize)
+
+            assertEquals("chunkSize=$chunkSize", "T", thread.title)
+            assertEquals("chunkSize=$chunkSize", listOf(Post.Readable(1, "a", "a@", "d1", "b1")), thread.posts)
+        }
+    }
+
+    @Test
+    fun `読み込みの境目が末尾の空白だけの行の途中でも空行のレスを作らず途中の空行の番号を保つ`() {
+        val row = "a<>a@<>d1<>b1<>T"
+        val text = "$row\n\r\n \n$row\r\n\r\n　\n\r\r"
+        val expected = parseText(text)
+
+        assertEquals(
+            listOf(
+                Post.Readable(1, "a", "a@", "d1", "b1"),
+                Post.Unreadable(2),
+                Post.Unreadable(3),
+                Post.Readable(4, "a", "a@", "d1", "b1"),
+            ),
+            expected.posts,
+        )
+        for (chunkSize in 1..5) {
+            assertEquals("chunkSize=$chunkSize", expected, parseChunked(text, chunkSize))
+        }
+    }
+
+    @Test
+    fun `バッファより長い行も読める`() {
+        val body = "あ".repeat(50_000)
+
+        val thread = parseText("a<>a@<>d1<>$body<>T\nb<>b@<>d2<>b2<>")
+
+        assertEquals(body, (thread.posts[0] as Post.Readable).body)
+        assertEquals(2, thread.posts.size)
+    }
+
     @Test
     fun `通常の1行を4項目に分けて1番のレスにできる`() {
         val text = "名無しさん<>sage<>2026/10/11(日) 12:34:56.78 ID:abcd1234<> 本文です <>"
 
-        val thread = DatParser.parse(text)
+        val thread = parseText(text)
 
         assertEquals(
             listOf(
@@ -28,7 +111,7 @@ class DatParserTest {
     @Test
     fun `本文のリンクのタグを外して文字を残す`() {
         val thread =
-            DatParser.parse(
+            parseText(
                 "a<>a@<>d1<><a href=\"../test/read.cgi/x/1/1\" target=\"_blank\">リンク</a>のあと<>",
             )
 
@@ -40,7 +123,7 @@ class DatParserTest {
 
     @Test
     fun `本文の太字のタグを外して文字を残す`() {
-        val thread = DatParser.parse("a<>a@<>d1<><b>太字</b><>")
+        val thread = parseText("a<>a@<>d1<><b>太字</b><>")
 
         assertEquals(
             listOf(Post.Readable(1, "a", "a@", "d1", "太字")),
@@ -50,7 +133,7 @@ class DatParserTest {
 
     @Test
     fun `本文のbrタグとほかのタグが混ざっていても改行を残してタグを外す`() {
-        val thread = DatParser.parse("a<>a@<>d1<><b>1行目</b><br>2行目<>")
+        val thread = parseText("a<>a@<>d1<><b>1行目</b><br>2行目<>")
 
         assertEquals(
             listOf(Post.Readable(1, "a", "a@", "d1", "1行目\n2行目")),
@@ -60,7 +143,7 @@ class DatParserTest {
 
     @Test
     fun `名前のタグを外して文字を残す`() {
-        val thread = DatParser.parse("名無し</b>◆abc<b><>a@<>d1<>本文<>")
+        val thread = parseText("名無し</b>◆abc<b><>a@<>d1<>本文<>")
 
         assertEquals(
             listOf(Post.Readable(1, "名無し◆abc", "a@", "d1", "本文")),
@@ -70,7 +153,7 @@ class DatParserTest {
 
     @Test
     fun `本文の名前つきの文字参照を文字に戻す`() {
-        val thread = DatParser.parse("a<>a@<>d1<>&gt;&gt;1 &lt;&amp;&quot;&hearts;&copy;<>")
+        val thread = parseText("a<>a@<>d1<>&gt;&gt;1 &lt;&amp;&quot;&hearts;&copy;<>")
 
         assertEquals(
             listOf(Post.Readable(1, "a", "a@", "d1", ">>1 <&\"♥©")),
@@ -80,7 +163,7 @@ class DatParserTest {
 
     @Test
     fun `本文の数値の文字参照を10進数も16進数も文字に戻す`() {
-        val thread = DatParser.parse("a<>a@<>d1<>&hearts;&#9829;&#x2665;<>")
+        val thread = parseText("a<>a@<>d1<>&hearts;&#9829;&#x2665;<>")
 
         assertEquals(
             listOf(Post.Readable(1, "a", "a@", "d1", "♥♥♥")),
@@ -90,7 +173,7 @@ class DatParserTest {
 
     @Test
     fun `文字参照は2重に戻さない`() {
-        val thread = DatParser.parse("a<>a@<>d1<>&amp;lt;<>")
+        val thread = parseText("a<>a@<>d1<>&amp;lt;<>")
 
         assertEquals(
             listOf(Post.Readable(1, "a", "a@", "d1", "&lt;")),
@@ -100,7 +183,7 @@ class DatParserTest {
 
     @Test
     fun `文字参照で戻した山括弧はタグとして外さない`() {
-        val thread = DatParser.parse("a<>a@<>d1<>&lt;b&gt;太字&lt;/b&gt;<>")
+        val thread = parseText("a<>a@<>d1<>&lt;b&gt;太字&lt;/b&gt;<>")
 
         assertEquals(
             listOf(Post.Readable(1, "a", "a@", "d1", "<b>太字</b>")),
@@ -110,7 +193,7 @@ class DatParserTest {
 
     @Test
     fun `名前の文字参照を文字に戻す`() {
-        val thread = DatParser.parse("名無し&amp;<>a@<>d1<>本文<>")
+        val thread = parseText("名無し&amp;<>a@<>d1<>本文<>")
 
         assertEquals(
             listOf(Post.Readable(1, "名無し&", "a@", "d1", "本文")),
@@ -120,7 +203,7 @@ class DatParserTest {
 
     @Test
     fun `本文のbrタグを改行にする`() {
-        val thread = DatParser.parse("a<>a@<>d1<>1行目<br>2行目<br>3行目<>")
+        val thread = parseText("a<>a@<>d1<>1行目<br>2行目<br>3行目<>")
 
         assertEquals(
             listOf(Post.Readable(1, "a", "a@", "d1", "1行目\n2行目\n3行目")),
@@ -132,7 +215,7 @@ class DatParserTest {
     fun `複数行は行の順番を1からのレス番号にする`() {
         val text = "a<>a@<>d1<>b1<>\nb<>b@<>d2<>b2<>\nc<>c@<>d3<>b3<>"
 
-        val thread = DatParser.parse(text)
+        val thread = parseText(text)
 
         assertEquals(listOf(1, 2, 3), thread.posts.map { it.number })
         assertEquals(
@@ -145,21 +228,21 @@ class DatParserTest {
     fun `タイトルは1行目の5つ目の欄から取る`() {
         val text = "a<>a@<>d1<>b1<>スレのタイトル\nb<>b@<>d2<>b2<>"
 
-        val thread = DatParser.parse(text)
+        val thread = parseText(text)
 
         assertEquals("スレのタイトル", thread.title)
     }
 
     @Test
     fun `タイトルの文字参照を文字に戻す`() {
-        val thread = DatParser.parse("a<>a@<>d1<>b1<>【AA】A&amp;B &gt; C")
+        val thread = parseText("a<>a@<>d1<>b1<>【AA】A&amp;B &gt; C")
 
         assertEquals("【AA】A&B > C", thread.title)
     }
 
     @Test
     fun `タイトルのタグを外して文字を残す`() {
-        val thread = DatParser.parse("a<>a@<>d1<>b1<><b>太字</b>のタイトル")
+        val thread = parseText("a<>a@<>d1<>b1<><b>太字</b>のタイトル")
 
         assertEquals("太字のタイトル", thread.title)
     }
@@ -168,7 +251,7 @@ class DatParserTest {
     fun `2行目以降の5つ目の欄はタイトルにしない`() {
         val text = "a<>a@<>d1<>b1<>\nb<>b@<>d2<>b2<>別の欄"
 
-        val thread = DatParser.parse(text)
+        val thread = parseText(text)
 
         assertNull(thread.title)
     }
@@ -177,7 +260,7 @@ class DatParserTest {
     fun `1行目の5つ目の欄が空ならタイトルはない`() {
         val text = "a<>a@<>d1<>b1<>"
 
-        val thread = DatParser.parse(text)
+        val thread = parseText(text)
 
         assertNull(thread.title)
     }
@@ -186,7 +269,7 @@ class DatParserTest {
     fun `1行目にタイトルの欄がなければタイトルはない`() {
         val text = "a<>a@<>d1<>b1"
 
-        val thread = DatParser.parse(text)
+        val thread = parseText(text)
 
         assertNull(thread.title)
     }
@@ -195,7 +278,7 @@ class DatParserTest {
     fun `欄が足りない行は読めなかったレスになり番号を保つ`() {
         val text = "a<>a@<>d1<>b1<>T\nこわれた行<>だけ\nc<>c@<>d3<>b3<>"
 
-        val thread = DatParser.parse(text)
+        val thread = parseText(text)
 
         assertEquals(
             listOf(
@@ -211,7 +294,7 @@ class DatParserTest {
     fun `1行目が読めないときはタイトルがなく2行目以降は読める`() {
         val text = "こわれた行\nb<>b@<>d2<>b2<>"
 
-        val thread = DatParser.parse(text)
+        val thread = parseText(text)
 
         assertNull(thread.title)
         assertEquals(
@@ -224,7 +307,7 @@ class DatParserTest {
     fun `空行は読めなかったレスになる`() {
         val text = "a<>a@<>d1<>b1<>\n\nc<>c@<>d3<>b3<>"
 
-        val thread = DatParser.parse(text)
+        val thread = parseText(text)
 
         assertEquals(listOf(1, 2, 3), thread.posts.map { it.number })
         assertEquals(Post.Unreadable(2), thread.posts[1])
@@ -234,7 +317,7 @@ class DatParserTest {
     fun `末尾の改行で空のレスを作らない`() {
         val text = "a<>a@<>d1<>b1<>T\nb<>b@<>d2<>b2<>\n"
 
-        val thread = DatParser.parse(text)
+        val thread = parseText(text)
 
         assertEquals(listOf(1, 2), thread.posts.map { it.number })
     }
@@ -243,7 +326,7 @@ class DatParserTest {
     fun `CRLFの行末でも欄に改行の文字が残らない`() {
         val text = "a<>a@<>d1<>b1<>T\r\nb<>b@<>d2<>b2<>\r\n"
 
-        val thread = DatParser.parse(text)
+        val thread = parseText(text)
 
         assertEquals("T", thread.title)
         assertEquals(
@@ -257,14 +340,14 @@ class DatParserTest {
 
     @Test
     fun `空の文字列はタイトルもレスもない`() {
-        val thread = DatParser.parse("")
+        val thread = parseText("")
 
         assertEquals(DatThread(title = null, posts = emptyList()), thread)
     }
 
     @Test
     fun `1行も読めないdatは読めたレスがなく全部読めなかったレスになる`() {
-        val thread = DatParser.parse("こわれた\nこわれた")
+        val thread = parseText("こわれた\nこわれた")
 
         assertEquals(listOf(Post.Unreadable(1), Post.Unreadable(2)), thread.posts)
         assertNull(thread.title)
@@ -272,21 +355,21 @@ class DatParserTest {
 
     @Test
     fun `欄がちょうど3つの行は読めなかったレスになる`() {
-        val thread = DatParser.parse("a<>a@<>d1")
+        val thread = parseText("a<>a@<>d1")
 
         assertEquals(listOf(Post.Unreadable(1)), thread.posts)
     }
 
     @Test
     fun `欄がちょうど4つの行はタイトルの欄がなくても読めたレスになる`() {
-        val thread = DatParser.parse("a<>a@<>d1<>b1")
+        val thread = parseText("a<>a@<>d1<>b1")
 
         assertEquals(listOf(Post.Readable(1, "a", "a@", "d1", "b1")), thread.posts)
     }
 
     @Test
     fun `6つ目以降の欄は無視して5つ目までで読む`() {
-        val thread = DatParser.parse("a<>a@<>d1<>b1<>T<>余分1<>余分2")
+        val thread = parseText("a<>a@<>d1<>b1<>T<>余分1<>余分2")
 
         assertEquals("T", thread.title)
         assertEquals(listOf(Post.Readable(1, "a", "a@", "d1", "b1")), thread.posts)
@@ -294,28 +377,28 @@ class DatParserTest {
 
     @Test
     fun `末尾の改行が2つ続いても空行のレスを作らない`() {
-        val thread = DatParser.parse("a<>a@<>d1<>b1<>T\n\n")
+        val thread = parseText("a<>a@<>d1<>b1<>T\n\n")
 
         assertEquals(listOf(Post.Readable(1, "a", "a@", "d1", "b1")), thread.posts)
     }
 
     @Test
     fun `末尾のCRLFの空行は空行のレスを作らない`() {
-        val thread = DatParser.parse("a<>a@<>d1<>b1<>T\r\n\r\n")
+        val thread = parseText("a<>a@<>d1<>b1<>T\r\n\r\n")
 
         assertEquals(listOf(Post.Readable(1, "a", "a@", "d1", "b1")), thread.posts)
     }
 
     @Test
     fun `CRLFの改行だけの文字列はレスもタイトルもない`() {
-        val thread = DatParser.parse("\r\n")
+        val thread = parseText("\r\n")
 
         assertEquals(DatThread(title = null, posts = emptyList()), thread)
     }
 
     @Test
     fun `途中のCRLFの空行は読めなかったレスになり番号を保つ`() {
-        val thread = DatParser.parse("a<>a@<>d1<>b1<>\r\n\r\nc<>c@<>d3<>b3<>\r\n")
+        val thread = parseText("a<>a@<>d1<>b1<>\r\n\r\nc<>c@<>d3<>b3<>\r\n")
 
         assertEquals(
             listOf(
@@ -329,7 +412,7 @@ class DatParserTest {
 
     @Test
     fun `改行だけの文字列はレスもタイトルもない`() {
-        val thread = DatParser.parse("\n")
+        val thread = parseText("\n")
 
         assertEquals(DatThread(title = null, posts = emptyList()), thread)
     }
@@ -338,7 +421,7 @@ class DatParserTest {
     fun `欄の中の単独のCRでレスを分けない`() {
         val text = "a<>a@<>d1<>b\r1<>T\nb<>b@<>d2<>b2<>"
 
-        val thread = DatParser.parse(text)
+        val thread = parseText(text)
 
         assertEquals(
             listOf(
@@ -351,25 +434,25 @@ class DatParserTest {
 
     @Test
     fun `1行目の5つ目の欄が空白だけならタイトルはない`() {
-        val thread = DatParser.parse("a<>a@<>d1<>b1<> ")
+        val thread = parseText("a<>a@<>d1<>b1<> ")
 
         assertNull(thread.title)
     }
 
     @Test
     fun `タグを外したあとに空白だけになるタイトルはタイトルがない`() {
-        assertNull(DatParser.parse("a<>a@<>d1<>b1<><b></b>").title)
-        assertNull(DatParser.parse("a<>a@<>d1<>b1<><b> </b>").title)
+        assertNull(parseText("a<>a@<>d1<>b1<><b></b>").title)
+        assertNull(parseText("a<>a@<>d1<>b1<><b> </b>").title)
     }
 
     @Test
     fun `文字参照を戻したあとに空白だけになるタイトルはタイトルがない`() {
-        assertNull(DatParser.parse("a<>a@<>d1<>b1<>&#32;").title)
+        assertNull(parseText("a<>a@<>d1<>b1<>&#32;").title)
     }
 
     @Test
     fun `空白以外を含むタイトルは前後の空白をそのまま持つ`() {
-        val thread = DatParser.parse("a<>a@<>d1<>b1<> T ")
+        val thread = parseText("a<>a@<>d1<>b1<> T ")
 
         assertEquals(" T ", thread.title)
     }
@@ -379,15 +462,15 @@ class DatParserTest {
         val row = "a<>a@<>d1<>b1<>T"
         val expected = listOf(Post.Readable(1, "a", "a@", "d1", "b1"))
 
-        assertEquals(expected, DatParser.parse("$row\n \n").posts)
-        assertEquals(expected, DatParser.parse("$row\n\t").posts)
+        assertEquals(expected, parseText("$row\n \n").posts)
+        assertEquals(expected, parseText("$row\n\t").posts)
     }
 
     @Test
     fun `途中の空白だけの行は読めなかったレスになり番号を保つ`() {
         val row = "a<>a@<>d1<>b1<>T"
 
-        val thread = DatParser.parse("$row\n \n$row\n")
+        val thread = parseText("$row\n \n$row\n")
 
         assertEquals(
             listOf(
@@ -400,7 +483,7 @@ class DatParserTest {
     }
 
     private fun bodyOf(rawBody: String): String {
-        val post = DatParser.parse("n<>m<>d<>$rawBody<>T").posts.single() as Post.Readable
+        val post = parseText("n<>m<>d<>$rawBody<>T").posts.single() as Post.Readable
         return post.body
     }
 
@@ -441,7 +524,7 @@ class DatParserTest {
 
     @Test
     fun `名前の空白は取り除かない`() {
-        val post = DatParser.parse(" 名無し <>m<>d<>b<>T").posts.single() as Post.Readable
+        val post = parseText(" 名無し <>m<>d<>b<>T").posts.single() as Post.Readable
 
         assertEquals(" 名無し ", post.name)
     }
@@ -455,12 +538,80 @@ class DatParserTest {
                 "名無し&lt;<>m<>d<> &gt;&gt;1 <>",
             ).joinToString("\n")
 
-        val posts = DatParser.parse(text).posts.map { it as Post.Readable }
+        val posts = parseText(text).posts.map { it as Post.Readable }
 
         assertEquals("名無し&#1114112;", posts[0].name)
         assertEquals("a&gt;&#1114112;\nx", posts[0].body)
         assertEquals("&gt;&#x110000;", posts[1].body)
         assertEquals("名無し<", posts[2].name)
         assertEquals(">>1", posts[2].body)
+    }
+
+    /** 読んだ文字数を数える、終わりのない [Reader]。 */
+    private class EndlessReader : Reader() {
+        var totalRead = 0L
+
+        override fun read(
+            cbuf: CharArray,
+            off: Int,
+            len: Int,
+        ): Int {
+            cbuf.fill('a', off, off + len)
+            totalRead += len
+            return len
+        }
+
+        override fun close() = Unit
+    }
+
+    @Test
+    fun `上限ちょうどの長さの行は読める`() {
+        val line = "a".repeat(20)
+
+        val thread = DatParser.parse(ChunkedReader(line, 7), maxLineLength = 20)
+
+        assertEquals(1, thread.posts.size)
+        assertTrue(thread.posts[0] is Post.Unreadable)
+    }
+
+    @Test
+    fun `行末のCRは行の長さに数えるので上限ちょうどの本文とCRは上限を超える`() {
+        assertThrows(LineTooLongException::class.java) {
+            DatParser.parse(StringReader("a".repeat(20) + "\r\n"), maxLineLength = 20)
+        }
+        DatParser.parse(StringReader("a".repeat(19) + "\r\n"), maxLineLength = 20)
+    }
+
+    @Test
+    fun `上限を1文字超える行は例外になる`() {
+        assertThrows(LineTooLongException::class.java) {
+            DatParser.parse(ChunkedReader("a".repeat(21), 7), maxLineLength = 20)
+        }
+        assertThrows(LineTooLongException::class.java) {
+            DatParser.parse(StringReader("a".repeat(21) + "\nb"), maxLineLength = 20)
+        }
+    }
+
+    @Test
+    fun `上限を超えた行は2行目以降でも例外になる`() {
+        assertThrows(LineTooLongException::class.java) {
+            DatParser.parse(ChunkedReader("a<>b<>c<>d<>t\n" + "a".repeat(21), 5), maxLineLength = 20)
+        }
+    }
+
+    @Test
+    fun `上限を超えたら終わりのない入力でも読むのをやめる`() {
+        val reader = EndlessReader()
+
+        assertThrows(LineTooLongException::class.java) { DatParser.parse(reader, maxLineLength = 20) }
+        assertTrue(reader.totalRead <= 8 * 1024)
+    }
+
+    @Test
+    fun `既定の上限は1024かける1024文字でちょうどの行は読め1文字超えると失敗する`() {
+        DatParser.parse(StringReader("a".repeat(1024 * 1024)))
+        assertThrows(LineTooLongException::class.java) {
+            DatParser.parse(StringReader("a".repeat(1024 * 1024 + 1)))
+        }
     }
 }

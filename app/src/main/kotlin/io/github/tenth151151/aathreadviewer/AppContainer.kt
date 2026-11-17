@@ -16,6 +16,6 @@ class AppContainer(
         DefaultThreadRepository(
             datSource = ContentResolverDatSource(context.contentResolver),
             boardType = BoardType.ZeroChannelPlus,
-            dispatcher = Dispatchers.Default,
+            dispatcher = Dispatchers.IO,
         )
 }

@@ -156,7 +156,7 @@ UI 層とデータ層の 2 層で作ります。
 
 - 機能のパッケージに、Screen、ViewModel、UiState と、画面のキー (`HomeKey` など。Navigation 3 の `NavKey`) をまとめます。
 - Repository とデータ源は、`data/` に置きます。dat を取得したり保存したりするデータ源と Repository も `data/` に置き、`dat/` の解析を使います。
-- `dat/` には、dat 形式の解析 (文字列から `Post` などを作る、取得や保存をしないコード) だけを置きます。
+- `dat/` には、dat 形式の解析 (`Reader` から読んで `Post` などを作る、取得や保存をしないコード) だけを置きます。
 - `dat/` と `ui/theme/` は、共通として今の場所に置きます。
 - `MainActivity` と、`NavDisplay` を出す `AatvNavDisplay`、`AatvApplication`、`AppContainer` は、ルートのパッケージに置きます。
 
@@ -168,16 +168,15 @@ io/github/tenth151151/aathreadviewer/
 ├── AatvNavDisplay.kt       (NavDisplay と、画面のキーごとの画面の対応)
 ├── AatvApplication.kt      (AppContainer を持つ)
 ├── AppContainer.kt         (Repository などを作る)
-├── dat/                    (dat 形式の解析。取得や保存はしない)
+├── dat/                    (dat 形式の解析。Reader から読み、取得や保存はしない)
 ├── ui/theme/               (共通のテーマ)
 ├── data/
 │   ├── ThreadRepository.kt (interface)
 │   ├── DefaultThreadRepository.kt
-│   ├── DatSource.kt        (interface)
+│   ├── DatSource.kt        (interface。開いたストリームとファイル名をブロックに渡す)
 │   ├── ContentResolverDatSource.kt
-│   ├── DatFile.kt          (データ源が返す、バイト列とファイル名)
 │   ├── LoadedThread.kt     (Repository が返す、読み込んだスレッド)
-│   ├── ReadBytesWithLimit.kt (上限つきでバイト列を読む)
+│   ├── LimitedInputStream.kt (読んだバイト数が上限を超えたら例外を投げるストリーム)
 │   ├── ThreadLoadException.kt (読めなかった原因と、上限を超えたときの例外)
 │   └── BoardType.kt
 ├── home/                   (ViewModel を持たない)
