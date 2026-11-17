@@ -44,10 +44,11 @@ class ContentResolverDatSource(
         }
 
     private companion object {
-        // 読む大きさの上限は 16 MB。これを超えるファイルは、解析の途中でも読むのをやめて [FileTooLargeException] にする。
-        // Android 17 のエミュレータ (heap の上限 192 MB) で、32 MB の dat は解析の途中でメモリ不足になり、
-        // 約 16 MB の dat は表示できた。
-        const val MAX_BYTES = 16 * 1024 * 1024
+        // 読む大きさの上限は 32 MB。これを超えるファイルは、解析の途中でも読むのをやめて [FileTooLargeException] にする。
+        // Android 17 のエミュレータ (heap の上限 192 MB) で、上限を上げて測ると、32 MB、48 MB、64 MB の dat はどれも表示できた。
+        // 開いた直後の Java Heap は、32 MB で約 65 MB、48 MB で約 88 MB、64 MB で約 120 MB だった。
+        // heap の上限は端末ごとに違うので、192 MB より小さい端末でも余裕を残すため、上限は 32 MB にしている。
+        const val MAX_BYTES = 32 * 1024 * 1024
     }
 
     // ファイル名が取れないことは、読み込みの失敗にしない。
