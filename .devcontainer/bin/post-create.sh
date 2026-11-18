@@ -182,3 +182,15 @@ log "git worktree を相対パスにする設定をします。"
 if ! git -C "$(dirname -- "${BASH_SOURCE[0]}")" config worktree.useRelativePaths true; then
   log "git worktree を相対パスにする設定ができませんでした。README の手順で、手動で設定してください。"
 fi
+
+# -------------------------------------------------------------
+# git のフックの場所
+#   .githooks の pre-push が、push の前に全角の丸括弧と Windows のスクリプトの文字コードを検査する。
+#   設定は .git/config に入るので、ホストの git にも効く。
+#   相対パスは、フックを動かす作業ツリーのトップから解決されるので、worktree でも効く。
+# -------------------------------------------------------------
+log "git のフックの場所を .githooks にします。"
+# 失敗しても、main を対象にした PR では CI が同じ検査をするので、セットアップ全体は止めない。
+if ! git -C "$(dirname -- "${BASH_SOURCE[0]}")" config core.hooksPath .githooks; then
+  log "git のフックの場所を設定できませんでした。README の手順で、手動で設定してください。"
+fi

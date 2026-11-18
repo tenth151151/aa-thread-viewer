@@ -14,6 +14,8 @@ bash bin/check-windows-script-encoding.sh
 ./gradlew spotlessApply
 ```
 
+git の pre-push のフック (`.githooks/pre-push`) が、全角の丸括弧の検査と Windows のスクリプトの文字コードの検査を、push の前に動かします。作業ツリーがクリーンで、push するものが `HEAD` のコミットと同じときだけ動かし、見つかったときと、検査が失敗したときは push を止めます。一致しないとき (未コミットの変更や未追跡のファイルがあるとき、`HEAD` でないブランチや注釈つきのタグを push するとき) は、検査を飛ばして push を通し、警告を出します。そのときも、main を対象にした PR では CI が同じ検査をします。ブランチの削除の push は検査しません。フックは `core.hooksPath` が `.githooks` のときに動きます。コンテナでは `.devcontainer/bin/post-create.sh` が設定します。ホストで clone したときは、リポジトリのフォルダで `git config core.hooksPath .githooks` を実行します。Windows のホストで動くかは確かめていません。どうしても push したいときは、`git push --no-verify` でフックを飛ばせますが、main を対象にした PR では、CI で同じ検査が動きます。
+
 カバレッジは Kover で測ります。数字とレポートは、debug と release を合わせた全体のものです。「CI と同じ確認」のコマンドは、行のカバレッジを標準出力に出し、レポートを `app/build/reports/kover/` に作ります。HTML は `html/index.html`、XML は `report.xml` です。JVM の単体テストだけで測るので、`@Composable` の関数 (`@Preview` の関数を含みます) と、Activity と Application のクラスは、測る対象から外しています。行のカバレッジが 80% を下回ると、`check` が失敗します。基準値と除外は `app/build.gradle.kts` の `kover` に書いています。CI は、行のカバレッジをジョブのサマリーに書き、レポートをアーティファクト `coverage` に上げます。
 
 ### エミュレータ (Windows)
