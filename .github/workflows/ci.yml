@@ -64,6 +64,9 @@ jobs:
           echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
 
+      # 次の 2 つの検査を足したり外したりするときは、手元で同じ検査を並べている次の場所もそろえる。
+      #   .githooks/pre-push、README.md の「CI と同じ確認」、
+      #   .claude/skills/pre-pr-check/SKILL.md の手順 1、.claude/skills/tdd/SKILL.md
       # 全角の丸括弧 (U+FF08、U+FF09) が残っていないかを調べる。
       - name: Check fullwidth parentheses
         run: bash bin/check-fullwidth-parens.sh

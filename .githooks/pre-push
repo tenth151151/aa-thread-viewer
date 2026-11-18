@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# =============================================================
+# pre-push
+#   git push の前に、全角の丸括弧と Windows のスクリプトの文字コードを検査するフック。
+#   core.hooksPath を .githooks にすると動く
+#   (コンテナでは .devcontainer/bin/post-create.sh が設定する)。
+#
+# 検査を動かす条件:
+#   - 作業ツリーがクリーンである (未追跡のファイルも含めて git status --porcelain が空)。
+#   - push する各行のローカルのオブジェクトが、HEAD のコミットと同じである。
+#   検査のスクリプトは作業ツリーを調べるので、条件を満たさないと、push するものを検査したことにならない。
+#   満たさないとき (HEAD でないブランチや、注釈つきのタグなど、HEAD と違うオブジェクトを push するときを含む) は、
+#   検査を飛ばして通し、標準エラーに警告を出す。
+#   main を対象にした PR では、CI が同じ検査をする。
+#
+# 削除の push (ローカルのオブジェクト名がすべて 0) は、検査せずに通す。
+#
+# 終了コード:
+#   0  push してよい。検査を飛ばしたときも含む。
+#   1  push を止める。検査が見つけた、検査そのものが失敗した、git の操作が失敗した、のどれか。
+# =============================================================
+
+set -uo pipefail
+
+log() { echo "[pre-push] $*" >&2; }
+
+# 逃げ道の案内。止めるときだけ、最後に付ける。
+escape_hatch() {
+  log "どうしても push したいときは、ユーザーが自分で git push --no-verify を実行してください。"
+  log "main を対象にした PR では、CI でも同じ検査が動きます。"
+}
+
+# 検査を飛ばして通す。引数は、飛ばす理由の最初の行。
+skip_checks() {
+  log "警告: $1"
+  log "全角の丸括弧の検査 (check-fullwidth-parens.sh) と Windows のスクリプトの文字コードの検査 (check-windows-script-encoding.sh) を飛ばして、push を通します。"
+  log "push するコミットと作業ツリーが一致しないので、検査しても、push するものを検査したことになりません。"
+  log "main を対象にした PR では、CI が同じ検査をします。"
+  exit 0
+}
+
+# 標準入力は、最後まで読んでから判断する。
+# 行は "<local-ref> <local-object-name> <remote-ref> <remote-object-name>" の形である。
+need_check=0
+local_shas=()
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  [[ -n "${local_sha:-}" ]] || continue
+  # SHA-256 のリポジトリでは 0 が 64 個になるので、個数は決め打ちしない。
+  if [[ "$local_sha" =~ ^0+$ ]]; then
+    continue
+  fi
+  need_check=1
+  local_shas+=("$local_sha")
+done
+
+# 削除の行しかないときは、検査を飛ばす。
+if [[ "$need_check" -eq 0 ]]; then
+  exit 0
+fi
+
+if ! root="$(git rev-parse --show-toplevel)"; then
+  log "リポジトリの場所が分からないので、push を止めます。"
+  escape_hatch
+  exit 1
+fi
+
+# 未追跡のファイルが見えなくなる設定 (status.showUntrackedFiles=no) があっても、見えるようにする。
+if ! status="$(git -C "$root" status --porcelain --untracked-files=normal)"; then
+  log "git status が失敗したので、push を止めます。"
+  escape_hatch
+  exit 1
+fi
+if [[ -n "$status" ]]; then
+  skip_checks "作業ツリーに、コミットしていない変更か、未追跡のファイルがあります。"
+fi
+
+if ! head_sha="$(git -C "$root" rev-parse HEAD)"; then
+  log "HEAD のコミットが分からないので、push を止めます。"
+  escape_hatch
+  exit 1
+fi
+for sha in "${local_shas[@]}"; do
+  if [[ "$sha" != "$head_sha" ]]; then
+    skip_checks "push しようとしているもの ($sha) が、今のブランチの HEAD ($head_sha) と違います。"
+  fi
+done
+
+# 検査のスクリプトは、push しているリポジトリの bin/ にあるものを使う。
+# この一覧は、.github/workflows/ci.yml の検査のステップとそろえる。
+failed=0
+for script in check-fullwidth-parens.sh check-windows-script-encoding.sh; do
+  bash "$root/bin/$script"
+  rc=$?
+  if [[ "$rc" -eq 0 ]]; then
+    continue
+  fi
+  failed=1
+  if [[ "$rc" -eq 1 ]]; then
+    log "$script が問題を見つけました。上の出力を見て、直してからコミットし、もう一度 push してください。"
+  else
+    log "$script が失敗しました (終了コード: $rc)。結果が分からないので、問題なしとは扱わず、push を止めます。"
+  fi
+done
+
+if [[ "$failed" -ne 0 ]]; then
+  escape_hatch
+  exit 1
+fi
+exit 0
