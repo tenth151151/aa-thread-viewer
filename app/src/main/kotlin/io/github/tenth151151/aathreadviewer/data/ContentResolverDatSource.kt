@@ -4,7 +4,7 @@ import android.content.ContentResolver
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.core.net.toUri
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.io.InputStream
@@ -18,12 +18,13 @@ import kotlin.coroutines.cancellation.CancellationException
  */
 class ContentResolverDatSource(
     private val contentResolver: ContentResolver,
+    private val dispatcher: CoroutineDispatcher,
 ) : DatSource {
     override suspend fun <T> read(
         uri: String,
         block: (stream: InputStream, fileName: String?) -> T,
     ): T =
-        withContext(Dispatchers.IO) {
+        withContext(dispatcher) {
             val parsedUri: Uri
             val fileName: String?
             val stream: InputStream

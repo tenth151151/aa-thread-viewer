@@ -15,7 +15,8 @@ class DefaultThreadRepository(
 ) : ThreadRepository {
     // runCatching は CancellationException も捕まえてしまうので、IOException だけを捕まえる。
     // 1 行が長すぎるときは、dat として読めないので、NotDat にする。
-    // 読み込みと解析は、CPU とブロッキングの処理なので、呼び出し元のスレッドを塞がないよう、渡されたディスパッチャーで行う。
+    // 解析は、データ源の read に渡すブロックの中で動く。本番のデータ源は、ブロックを自分のディスパッチャーの中で呼ぶので、解析はそのスレッドで動く。
+    // ここで渡されたディスパッチャーに切り替えるのは、データ源の実装が切り替えるかどうかに頼らず、この関数自身を main-safe にするため。
     override suspend fun loadThread(uri: String): Result<LoadedThread> =
         try {
             withContext(dispatcher) {

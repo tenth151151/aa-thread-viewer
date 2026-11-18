@@ -3,7 +3,10 @@ package io.github.tenth151151.aathreadviewer.data
 import java.io.IOException
 import java.io.InputStream
 
-/** dat のストリームとファイル名を渡すデータ源。 */
+/**
+ * dat のストリームとファイル名を渡すデータ源。
+ * スレッドを塞ぐ実装は、[read] を main-safe にする (受け取ったディスパッチャーで切り替える)。
+ */
 interface DatSource {
     /**
      * [uri] を開き、ストリームとファイル名を [block] に渡して、[block] の結果を返す。ストリームは、[block] が終わったら閉じる。
