@@ -42,4 +42,4 @@ CLAUDE.local.md
 # Project
 *.env
 *.tmp
-.tmp/
+.tmp

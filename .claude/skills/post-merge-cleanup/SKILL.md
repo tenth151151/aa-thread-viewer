@@ -6,7 +6,7 @@ description: PR が main にマージされたあとに、ローカルの main �
 # PR をマージしたあとの後片付け
 
 PR が main にマージされたあとに、ローカルの main を更新し、マージ済みのブランチとバックアップのタグを片付けます。そのあと、マージした PR と Issue をふりかえり、見つけた点を記録に貯めて、同じ種類の点が 2 回目になったときに、スキルやルールへの反映を提案します。
-実行するのは supervisor (監督) です。ブランチの切り替え、main の更新、タグやブランチの削除は、ユーザーの確認を取ってから helper が行う決まりです (`CLAUDE.md`、`.claude/rules/upstream-skills.md`、`.claude/agents/helper.md` の「できること」)。
+実行するのは supervisor (監督) です。ブランチの切り替え、main の更新、タグやブランチの削除、`.tmp/` の下のディレクトリの削除は、ユーザーの確認を取ってから helper が行う決まりです (`CLAUDE.md`、`.claude/rules/upstream-skills.md`、`.claude/agents/helper.md` の「できること」)。
 
 ## 1. 状態を調べる
 
@@ -18,6 +18,71 @@ helper に、次を読むだけで調べてもらいます。ブランチの切�
 - マージした PR のブランチと、`git branch -vv` でリモートが消えた (`gone` の) ほかのローカルのブランチの、それぞれについて `git merge-base --is-ancestor <ブランチ> origin/main` の終了コード
 - バックアップのタグのそれぞれについて、タグの名前、`git log -1 --format='%h %ci %s' <タグ>` (指しているコミットと、その日時と件名)、元のブランチ (タグの名前から先頭の `backup/` と末尾の `/<日時>` を除いたもの) がローカルにあるか、あるときはその先頭が `origin/main` に入っているか (`git merge-base --is-ancestor <ブランチ> origin/main` の終了コード)。
 - `git worktree list`
+- メインの作業ツリーの `.tmp/` の下の、一時ファイル (確認の証拠) のディレクトリ。メインの作業ツリーは、`git rev-parse --path-format=absolute --git-common-dir` が返すパスの 1 つ上のディレクトリです (手順 5 の記録の置き場所と同じです)。次のコマンドを、そのまま実行させます。`<PR の番号>` の 1 か所だけを、監督が書き換えて渡します。
+  - 監督が書き込んでよい値は、PR の番号 (数字だけ) です。ブランチ名は、git が `$`、`` ` ``、`"` を含む名前を許すので、監督が書き込まず、コマンドが `gh pr view` で自分で取ります。数字以外を書き込みません。
+  - 証拠のディレクトリは、`.tmp/` からの相対パスが、ブランチ名と完全に一致するディレクトリです。ブランチ名は、ローカルのブランチ、`origin` のブランチ、マージした PR の `headRefName` です。ブランチ名に `/` があるので、一致するのは、相対パスの先頭側 (自分か祖先) です。その下のサブディレクトリは、一致した親にまとめ、出しません。
+  - 出力の `証拠 (<照合>): <パス>` の `<照合>` は、どの照合で当たったかです。`ローカル`、`ローカル (リモートが消えた)`、`リモート`、`マージ済み PR` の組み合わせで出ます。`ローカル (リモートが消えた)` は、`git branch -vv` で `gone` のブランチです。
+  - `マージ済み PR` と出たブランチ名で、ローカルかリモートの同じ名前のブランチの先頭が `origin/main` に入っていないときは、行の最後に `[注意: …]` を付けます。マージした PR のブランチ名を、新しい作業に使い回しているおそれがあるためです。
+  - ファイルのない空のディレクトリも出ます。`.tmp/retro-log` と、その下だけを外します (`feature/retro-log/x` のようなブランチの下は外しません)。
+  - どのブランチとも一致せず、ブランチ名の途中 (`chore/` など) でもないディレクトリは、いちばん上の 1 つだけを「対応するブランチなし」として出します。
+  - `.tmp/` の直下と、ブランチ名の途中のディレクトリの直下にあるファイルは、「ファイル (報告のみ)」として出します。消す対象ではなく、ユーザーに報告します。
+
+  ```bash
+  main="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+  pr="<PR の番号>"
+  case "$pr" in '' | *[!0-9]*) echo "PR の番号が数字ではありません。" >&2; exit 1 ;; esac
+  merged="$(gh pr view "$pr" --json headRefName -q .headRefName)" || exit 1
+  [ -n "$merged" ] || { echo "ブランチ名を取れませんでした。" >&2; exit 1; }
+  local_branches="$(git for-each-ref --format='%(refname:lstrip=2)' refs/heads)"
+  gone_branches="$(git for-each-ref --format='%(refname:lstrip=2) %(upstream:track)' refs/heads | awk '$2 == "[gone]" { print $1 }')"
+  remote_branches="$(git for-each-ref --format='%(refname:lstrip=3)' refs/remotes/origin | grep -vx HEAD)"
+  all_branches="$(printf '%s\n%s\n%s\n' "$local_branches" "$remote_branches" "$merged")"
+  in_list() { printf '%s\n' "$2" | grep -Fxq -- "$1"; }
+  [ -d "$main/.tmp" ] || { echo ".tmp がありません。"; exit 0; }
+  cd "$main/.tmp" || exit 1
+  # .tmp 直下のファイルは、報告のみとして出す。
+  find . -mindepth 1 -maxdepth 1 -type f | sed 's|^\./||; s|^|ファイル (報告のみ): |'
+  # retro-log は、先頭の 1 つだけを外す。
+  find . -mindepth 1 -type d | sed 's|^\./||' | grep -v -e '^retro-log$' -e '^retro-log/' | sort | while IFS= read -r d; do
+    # 自分か祖先のパスが、ブランチ名と完全に一致するかを調べる。
+    p="$d"; hit=""
+    while :; do
+      label=""
+      if in_list "$p" "$gone_branches"; then label="ローカル (リモートが消えた)"
+      elif in_list "$p" "$local_branches"; then label="ローカル"; fi
+      in_list "$p" "$remote_branches" && label="$label${label:+ と }リモート"
+      [ "$p" = "$merged" ] && label="$label${label:+ と }マージ済み PR"
+      if [ -n "$label" ]; then hit="$p"; break; fi
+      case "$p" in */*) p="${p%/*}" ;; *) break ;; esac
+    done
+    if [ -n "$hit" ]; then
+      # 祖先が一致したものは、親にまとめて出さない。
+      if [ "$hit" = "$d" ]; then
+        note=""
+        if [ "$d" = "$merged" ]; then
+          # 名前を使い回した新しい作業は、先頭が origin/main に入っていない。
+          for ref in "refs/heads/$d" "refs/remotes/origin/$d"; do
+            if git rev-parse -q --verify "$ref" > /dev/null && ! git merge-base --is-ancestor "$ref" origin/main; then
+              note="$note [注意: $ref の先頭が origin/main に入っていません。名前を使い回した新しい作業のおそれがあります]"
+            fi
+          done
+        fi
+        echo "証拠 ($label): $d$note"
+      fi
+      continue
+    fi
+    # ブランチ名の途中のディレクトリは、直下のファイルだけを出す。
+    if printf '%s\n' "$all_branches" | awk -v d="$d/" 'index($0, d) == 1 { f = 1 } END { exit !f }'; then
+      find "$d" -mindepth 1 -maxdepth 1 -type f | sed 's|^|ファイル (報告のみ): |'
+      continue
+    fi
+    # 一致せず、途中でもないものは、いちばん上の 1 つだけを出す。
+    parent="${d%/*}"
+    if [ "$parent" = "$d" ] || printf '%s\n' "$all_branches" | awk -v d="$parent/" 'index($0, d) == 1 { f = 1 } END { exit !f }'; then
+      echo "対応するブランチなし: $d"
+    fi
+  done
+  ```
 - マージした PR の本文とコメント (`gh pr view <番号> --json body,comments`) にある `#<番号>` を拾い、それぞれ `gh issue view <番号> --json state,labels` で調べて、`wayfinder:map` を除く `wayfinder:<type>` のラベルが付いた、開いている Issue。
 
 PR がマージされていないときは、先に進まず、ユーザーに伝えます。
@@ -30,6 +95,12 @@ PR がマージされていないときは、先に進まず、ユーザーに�
 - バックアップのタグを消します。手順 1 の一覧を見せ、消すタグをユーザーに選んでもらいます。
 - マージした PR のローカルのブランチを消します (ブランチを消すときは、1 つ目の選択肢 (main の更新) も一緒に選んでもらいます)。
 - リモートが消えた、ほかのローカルのブランチを消します (main に入っているものだけ。入っていないものは消さずに報告します。ブランチを消すときは、1 つ目の選択肢 (main の更新) も一緒に選んでもらいます)。
+- 手順 1 で `証拠 (…)` と出た `.tmp/<ブランチ名>/` のうち、同じ回の手順 3 で消すブランチのものを消します。選択肢に出すのは、次のものだけです。
+  - `マージ済み PR` と出たもの。ただし、行に `[注意: …]` が付いたものは、名前を使い回した新しい作業の証拠かもしれないので、選択肢に出さず、消さずに報告します。
+  - `ローカル (リモートが消えた)` と出たもの。ただし、手順 3 の `git merge-base --is-ancestor <ブランチ> origin/main` の終了コードが 0 のブランチのものだけです。0 でないブランチは、手順 3 で消さずに残すので、証拠も残します。
+  - `ローカル` だけ、`リモート` だけと出たもの (作業が続いているブランチ) は、選択肢に出しません。
+  - パスに `'` を含むものは、手順 3 のコマンドに渡せないので、選択肢に出さず、報告します。
+- 手順 1 で「対応するブランチなし」と出た `.tmp/` の下のディレクトリを、一覧で見せ、消すものをユーザーに選んでもらって消します。「ファイル (報告のみ)」は、消さずに報告します。パスに `'` を含むものは、同じく報告するだけにします。
 
 ## 3. 片付ける
 
@@ -40,17 +111,80 @@ PR がマージされていないときは、先に進まず、ユーザーに�
 - main に切り替えて更新しないときは、ブランチを消さずに報告します。
 - ブランチは、消す直前に `git merge-base --is-ancestor <ブランチ> origin/main` の終了コードが 0 であることを確かめてから、`git branch -d` で消します。0 でないものは消さずに報告します。
 - バックアップのタグは、ユーザーが選んだものだけを `git tag -d` で消します。選ばれていないタグは消しません。
+- 消す順は、次のとおりです。ブランチの証拠 (`.tmp/<ブランチ名>/`) を、ブランチより先に消すのは、消すコマンドが、同じ回で消すブランチの証拠を、ほかのブランチの証拠として数えられるようにするためです。一方、ブランチが残るのに証拠だけ消えるのを防ぐため、先にブランチの確かめを済ませます。
+  1. ブランチの `git merge-base --is-ancestor <ブランチ> origin/main` の確かめを、すべて先に行います。
+  2. `.tmp/` の下のディレクトリを消します。0 でなかったブランチの証拠は、消さずに報告します。入れ子になったものを複数選んだときは、下のものを先に消します。
+  3. ブランチを `git branch -d` で消します。
+- `.tmp/` の下のディレクトリは、ユーザーが選んだものだけを、選んだ 1 つずつ、次のコマンドで消します。`<PR の番号>` と `<パス>` の 2 か所だけを、監督が書き換えて渡します。書き込む値を次のように決めるのは、`$`、`` ` ``、`"` を含む値を書き込むと、helper のシェルが解釈してしまうおそれがあるためです。
+  - `<PR の番号>`: 手順 1 の PR の番号。数字だけを書きます。ブランチ名は書き込みません。コマンドが `gh pr view` で自分で取ります。
+  - `<パス>`: 手順 1 の出力のディレクトリの絶対パス (`<メインの作業ツリー>/.tmp/<相対パス>`)。一重引用符 (`'…'`) の中に書きます。二重引用符の中には書きません。パスに `'` を含むときは、書き込まず、そのディレクトリを消さずに止めて報告します。
+
+  コマンドは、消す前に、次を確かめて、1 つでも当たらなければ何も消さずに止まります。
+  - `<パス>` の末尾の `/` を、いくつあってもすべて外します。末尾に `/` があると、リンクが辿られて、`-L` の確かめをすり抜けるためです。外したあと、`<パス>` 自身がリンクではないこと。リンクは、辿らずに消さず、報告します。
+  - `<パス>` の途中にリンクがないこと。`realpath -s` で `..` を畳んだ見かけのパスが、`.tmp/` の下にあり、`realpath -e` で解決した実体のパスが、`.tmp/` を `realpath -e` で解決したものに、その見かけの相対パスを足したものと同じであることを確かめます。食い違うときは、途中にリンクがあるので、消さずに報告します。最後の要素だけを `-L` で調べると、途中のリンクを通った別の場所を消してしまうためです。
+  - `<パス>` を `realpath` で実体に解決した結果が、メインの作業ツリーの `.tmp/` (これも `realpath` で解決したもの) の下にあること。文字列で比べると、`..` やリンクを通った別の場所を見逃すので、実体で比べます。`.tmp` 自身と `.tmp/retro-log` と、その下のものは、選ばれていても消さずに報告します。
+  - 消す先の下に、手順 1 の照合 (ローカル、リモート、マージした PR のブランチ名) で証拠になる、ほかのディレクトリがないこと。あるときは、消さずに止めて報告します。たとえば `.tmp/feature` を消すと、その下の `.tmp/feature/x` (ブランチ `feature/x` の証拠) まで消えるためです。
+
+  消すときは、実体のディレクトリを、中身ごと `rm -r` で消します (`-f` とワイルドカードは使いません)。`rm -r` が失敗したときは、止めて報告します。消したあとに親のディレクトリが空になったら、空の親を 1 段ずつ `rmdir` で消します (例: `.tmp/chore/tmp-evidence-dir/` を消したあと、`.tmp/chore/` が空なら消します)。空かどうかは、`rmdir` の前に確かめ、空でなければそこで止まります (エラーは出しません)。`.tmp` まで上がったら止め、`.tmp` 自身は消しません。`rmdir -p` は、`.tmp` まで消すので使いません。
+
+  ```bash
+  main="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+  pr="<PR の番号>"
+  arg='<パス>'
+  case "$pr" in '' | *[!0-9]*) echo "PR の番号が数字ではありません。" >&2; exit 1 ;; esac
+  merged="$(gh pr view "$pr" --json headRefName -q .headRefName)" || exit 1
+  [ -n "$merged" ] || { echo "ブランチ名を取れませんでした。" >&2; exit 1; }
+  # 末尾の / を、いくつあってもすべて外す。
+  while [ "$arg" != "${arg%/}" ]; do arg="${arg%/}"; done
+  base="$(realpath -e -- "$main/.tmp")" || { echo ".tmp がありません。" >&2; exit 1; }
+  base_s="$(realpath -s -- "$main/.tmp")"
+  if [ -L "$arg" ]; then echo "リンクなので消しません: $arg" >&2; exit 1; fi
+  # 見かけのパス (.. は畳むが、リンクは辿らない) が .tmp の下にあること。
+  arg_s="$(realpath -s -- "$arg")"
+  case "$arg_s" in "$base_s/"?*) ;; *) echo ".tmp の外のパスです: $arg" >&2; exit 1 ;; esac
+  rel="${arg_s#"$base_s/"}"
+  target="$(realpath -e -- "$arg")" || { echo "パスがありません: $arg" >&2; exit 1; }
+  # 実体のパスが、見かけのパスと同じであること。食い違えば、途中にリンクがある。
+  [ "$target" = "$base/$rel" ] || { echo "途中にリンクがあるので消しません: $arg" >&2; exit 1; }
+  case "$target" in
+    "$base" | "$base/retro-log" | "$base/retro-log/"*) echo "消してはいけないパスです: $target" >&2; exit 1 ;;
+    "$base/"?*) ;;
+    *) echo ".tmp の外のパスです: $target" >&2; exit 1 ;;
+  esac
+  [ -d "$target" ] || { echo "ディレクトリではありません: $target" >&2; exit 1; }
+  # 消す先の下に、ほかのブランチの証拠がないかを調べる。
+  all_branches="$(
+    git for-each-ref --format='%(refname:lstrip=2)' refs/heads
+    git for-each-ref --format='%(refname:lstrip=3)' refs/remotes/origin
+    printf '%s\n' "$merged"
+  )"
+  nested=""
+  while IFS= read -r s; do
+    rel="${s#"$base/"}"
+    if printf '%s\n' "$all_branches" | grep -Fxq -- "$rel"; then nested="$nested $rel"; fi
+  done < <(find "$target" -mindepth 1 -type d)
+  if [ -n "$nested" ]; then echo "下にほかのブランチの証拠があるので消しません:$nested" >&2; exit 1; fi
+  rm -r -- "$target" || { echo "消せませんでした: $target" >&2; exit 1; }
+  # 空になった親を、.tmp の手前まで 1 段ずつ消す。
+  parent="$(dirname "$target")"
+  while [ "$parent" != "$base" ]; do
+    [ -z "$(find "$parent" -mindepth 1 -maxdepth 1 -print -quit)" ] || break
+    rmdir -- "$parent" || { echo "親を消せませんでした: $parent" >&2; exit 1; }
+    parent="$(dirname "$parent")"
+  done
+  ```
 - コミット、push、リモートのブランチやタグの削除、`-D` や `--force` での削除はしません。
-- 最後に、`git status -sb`、`git branch -vv`、`git tag -l 'backup/*'`、`git worktree list` の出力をそのまま報告します。
+- 最後に、`git status -sb`、`git branch -vv`、`git tag -l 'backup/*'`、`git worktree list` の出力と、手順 1 の `.tmp` の一覧のコマンドを出し直した結果を、そのまま報告します。
 
 ブランチに `-d` と消す直前の確かめを使うのは、main に入っていないものを誤って消さないためです。タグをユーザーに選んでもらうのは、ブランチ名を使い回したときや、元のブランチを先に消したときに、消してよいかを自動では判断できないためです。
 
 ## 4. 確かめて報告する
 
-supervisor が自分で `git status -sb`、`git branch -vv`、`git tag -l 'backup/*'`、`git worktree list` を実行し、helper の報告と合っているかを確かめます。そのうえで、ユーザーに次を報告します。
+supervisor が自分で `git status -sb`、`git branch -vv`、`git tag -l 'backup/*'`、`git worktree list` を実行し、手順 1 の `.tmp` の一覧のコマンドを出し直して、helper の報告と合っているかを確かめます。そのうえで、ユーザーに次を報告します。
 
 - main がどのコミットまで進んだか。
 - 消したタグとブランチ。消さなかったものがあれば、その理由。
+- 消した `.tmp/` の下のディレクトリと、残っているもの (出し直した一覧のとおり)。残したものがあれば、その理由。
 - 手順 1 で見つけた、開いている wayfinder のチケット。`docs/agents/issue-tracker.md` の「Resolve」の手順で閉じることを案内します。wayfinder のチケットには `Closes` を書かないので、マージでは閉じないためです。Resolve は Issue への書き込み (コメント、クローズ、マップの本文の書き換え) なので、案内だけで書き込まず、チケットごとに文面をユーザーに見せて確認を取ってから行います (`.claude/rules/upstream-skills.md` の「Issue」の節)。Resolve は地図の本文を書き換えるので、同じ地図のチケットが複数あるときは、1 件ずつ順に行います (並行して書き換えず、書き換える直前に読み直します。`docs/agents/issue-tracker.md` と、上の `upstream-skills.md` の節のとおりです)。該当するものがなければ、ないと一言伝えます。
 
 報告のあと、手順 5 に進みます。

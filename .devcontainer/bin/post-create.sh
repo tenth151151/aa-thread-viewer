@@ -194,3 +194,18 @@ log "git のフックの場所を .githooks にします。"
 if ! git -C "$(dirname -- "${BASH_SOURCE[0]}")" config core.hooksPath .githooks; then
   log "git のフックの場所を設定できませんでした。README の手順で、手動で設定してください。"
 fi
+
+# -------------------------------------------------------------
+# 一時ファイルの置き場 (.tmp)
+#   確認の証拠 (スクリーンショットなど) を .tmp/<ブランチ名>/ に置く。
+#   .claude/settings.json の worktree.symlinkDirectories が、worktree からこのディレクトリへのリンクを作るので、先に作っておく。
+# -------------------------------------------------------------
+log ".tmp を作ります。"
+# 失敗しても、使うときに mkdir -p で作れるので、セットアップ全体は止めない。
+if top="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)" && [ -n "$top" ]; then
+  if ! mkdir -p "$top/.tmp"; then
+    log ".tmp を作れませんでした。使うときに mkdir -p で作ってください。"
+  fi
+else
+  log "リポジトリのトップを調べられなかったので、.tmp を作りません。使うときに mkdir -p で作ってください。"
+fi

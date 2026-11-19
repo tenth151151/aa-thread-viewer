@@ -33,3 +33,7 @@
 ## 開発環境
 
 - `python3` があることを前提にしない (今のコンテナには入っていない)。
+- 一時ファイルは 2 つに分けて置く。確認の証拠 (スクリーンショット、`uiautomator dump` の出力、確かめに使った dat) は、ユーザーが見るので、リポジトリの `.tmp/<ブランチ名>/` に置く (ブランチ名の `/` は、そのまま下のディレクトリになる)。`retro-log` と、`retro-log/` で始まる名前は、ブランチ名に使わない (`.tmp/retro-log/` はふりかえりの記録の場所)。下書きなどの途中のファイルは、スクラッチパッドに置く。
+- `.tmp/` は git に入れない。書く前に `mkdir -p` で作り、出力先は `git rev-parse --show-toplevel` から作った絶対パスで書く (相対パスだと、リポジトリのいちばん上にファイルができる)。
+- Claude Code が作る worktree (`--worktree`、`EnterWorktree`、隔離されたサブエージェント) には、`.claude/settings.json` の `worktree.symlinkDirectories` で、メインの作業ツリーの `.tmp/` へのリンクを作る。手で `git worktree add` した worktree には、リンクができない。
+- `.tmp/<ブランチ名>/` は、`/post-merge-cleanup` が、ユーザーの確認を取ってから片付ける。
