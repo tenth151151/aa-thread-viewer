@@ -85,6 +85,18 @@ UI 層とデータ層の 2 層で作ります。
   - 複数の ViewModel で、データ層とやり取りする同じロジックを使うとき。
   - ViewModel のロジックが複雑になったとき。
 
+### スレッドの切り替え
+
+スレッドを塞ぐ処理 (ブロッキングの I/O、重い CPU の処理) をする suspend 関数を持つクラスは、その関数を main-safe (メインスレッドから呼んでも安全) にします。層は問いません。Repository、データ源、UseCase が対象です。公式の Coroutines のベストプラクティスのページは、これを「処理をするクラスの責任」とし、アプリのすべてのクラスに当てはまるとしています。データ層のページも、長く塞ぐ処理をするクラスが、自分の処理を適切なスレッドに移す責任を持つとしています。
+
+- 切り替えは、処理をするクラス自身が `withContext` で行います。呼び出し側 (ViewModel など) には任せません。
+- 切り替えに使うディスパッチャーは、コンストラクタで受け取ります。`Dispatchers.IO` などを `withContext` やコルーチンの起動に直接書きません。公式のページが、`Dispatchers` を直接書かず、アプリではディスパッチャーを注入するよう求めているためです。JVM のテストで動かさないデータ源の実装 (`ContentResolverDatSource` など) も対象です。
+- ディスパッチャーの引数に、既定値を付けません。`AppContainer` で必ず渡します。公式のページの例は、既定値 (`Dispatchers.Default`) を付けていますが、ページに既定値の理由の説明はありません。本プロジェクトでは、`AppContainer` での渡し忘れをコンパイルで見つけるため、テストで差し替え忘れたときに本物のディスパッチャーで動くのを防ぐために、既定値を付けません。
+- `AppContainer` で渡すディスパッチャーは、ブロッキングの I/O をするなら `Dispatchers.IO`、CPU の処理だけなら `Dispatchers.Default`、両方を 1 つの流れでするなら `Dispatchers.IO` にします。この使い分けは、公式のページがはっきり書いているものではなく、公式の例に合わせた本プロジェクトの決まりです。
+- データ源と、それを使う Repository が、どちらもブロッキングの処理を含むときは、両方が自分で切り替えます (`ContentResolverDatSource` と `DefaultThreadRepository`)。`AppContainer` は、両方に同じ `Dispatchers.IO` を渡します。解析は、データ源の `read` に渡すブロックの中で動き、データ源のディスパッチャーで動くので、Repository に別のディスパッチャーを渡しても、解析のスレッドは変わらないためです。Repository の切り替えは、データ源の実装が切り替えるかどうかに頼らず、自分の関数を main-safe にするためのものです。二重の `withContext` は、この決まりどおりです。
+- ViewModel は対象外です。`viewModelScope` は Main に決まっているので、ディスパッチャーを注入しません。テストでは `Dispatchers.setMain` で差し替えます (`/tdd` スキルの「ViewModel のテスト」の節)。
+- JVM でテストするクラスは、渡したディスパッチャーで処理が動くことを、テストで確かめます。書き方は、`/tdd` スキルの「ディスパッチャーを受け取るクラスのテスト」の節にあります。
+
 ## DI
 
 手動の DI から始め、コンストラクタ注入を守ります。
@@ -93,6 +105,7 @@ UI 層とデータ層の 2 層で作ります。
 - `Application` のクラス (`AatvApplication`) は、`AndroidManifest.xml` の `<application>` に `android:name` で登録します。
 - Repository は、`AppContainer` で作ります。
 - クラスは、依存するものをコンストラクタで受け取ります。クラスの中で依存先を生成したり、グローバルな状態から取り出したりしません。
+- ディスパッチャーの受け取り方は、「層」の節の「スレッドの切り替え」に従います。
 - ViewModel は、`ViewModelProvider.Factory` で作ります。ViewModel の `companion object` に、`viewModelFactory { initializer { … } }` で Factory を作る関数を置きます。`initializer` の中で、`ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY` から `Application` を取り、その `AppContainer` の Repository を ViewModel のコンストラクタに渡します。画面のキーの値 (Uri など) は、この関数の引数からコンストラクタに渡します (例: `ThreadViewModel.factory(uri)`)。画面 (`XxxScreen` を呼ぶ側) は、`viewModel(factory = …)` で ViewModel を受け取ります。
 
 ### Hilt に移る目安
@@ -217,6 +230,8 @@ Fake を使います。
 - androidx.hilt.navigation.compose の `hiltViewModel` のリファレンス (非推奨の表示): https://developer.android.com/reference/kotlin/androidx/hilt/navigation/compose/hiltViewModel.composable
 - Hilt と Jetpack (WorkManager への注入): https://developer.android.com/training/dependency-injection/hilt-jetpack
 - Flow のテスト (`stateIn` と `backgroundScope`): https://developer.android.com/kotlin/flow/test
+- Coroutines のベストプラクティス (ディスパッチャーの注入と main-safe): https://developer.android.com/kotlin/coroutines/coroutines-best-practices
+- コルーチンのテスト (`StandardTestDispatcher` と `advanceUntilIdle`): https://developer.android.com/kotlin/coroutines/test
 - Navigation 3 のはじめかた: https://developer.android.com/guide/navigation/navigation-3/get-started
 - Navigation 3 のレシピ (画面ごとの ViewModel のスコープ): https://developer.android.com/guide/navigation/navigation-3/recipes/passingarguments
 - Dagger 2.60 のリリースノート: https://github.com/google/dagger/releases/tag/dagger-2.60

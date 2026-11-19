@@ -93,6 +93,19 @@ Kotlin のコンパイラの警告は、`check` だけでなく、テストの�
 - 読み込み中の状態を確かめるには、Fake が `CompletableDeferred` を待つようにします。読み込み中であることを確かめてから、`CompletableDeferred` を完了し、`advanceUntilIdle()` を呼んで、最後の状態を確かめます。
 - `stateIn(…, SharingStarted.WhileSubscribed(…), …)` で作った `StateFlow` は、集める側がいないと、`value` が初期値のままになります。テストで `value` を検証するときは、`backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.xxx.collect {} }` のように、空の collector を用意します。`MutableStateFlow` を直接更新して公開する ViewModel では、要りません。
 
+## ディスパッチャーを受け取るクラスのテスト
+
+ディスパッチャーをコンストラクタで受け取るクラス (決まりは `.claude/rules/architecture.md` の「スレッドの切り替え」) は、渡したディスパッチャーで処理が動くことを、仕事を溜めるだけで手で動かすまで実行しないディスパッチャーで確かめます。例は、`DefaultThreadRepositoryTest` の `ManualDispatcher` と、「データ源を読む前に渡されたディスパッチャーへ切り替える」のテストです。`ManualDispatcher` は、このテストクラスの中の private のクラスなので、ほかのテストからは使えません。2 つ目のクラスのテストで使うときは、テスト用のソースセット (`app/src/test/kotlin/`) の共通のファイルに移してから使います。
+
+1. `ManualDispatcher` を渡したクラスを作ります。
+2. `async` で、対象の関数を呼びます。
+3. `advanceUntilIdle()` を呼びます。
+4. `try` の中で、結果がまだ出ていないことと、処理が始まっていないことを確かめます。
+5. `finally` で `runAll()` を呼び、溜まった仕事を流します。確かめが失敗したときも流すためです。流さないと、`runTest` のタイムアウトまで待って失敗し、本当の失敗 (確かめの失敗) が隠れます。
+6. もう一度 `advanceUntilIdle()` を呼び、結果を確かめます。
+
+`StandardTestDispatcher(testScheduler)` を渡す形は、この確認には使いません。コルーチンのテストのページは、`advanceUntilIdle` を「スケジューラーのキューに何も残らなくなるまで、ほかのコルーチンを実行する」ものとし、テスト用のディスパッチャーは同じスケジューラーを共有するべきとしています。そのため、`runTest` と同じスケジューラーの `StandardTestDispatcher` を渡すと、`advanceUntilIdle()` が呼び出し側と渡したディスパッチャーの両方を進め、渡したディスパッチャーを使わなくても通るテストになってしまいます。通常のテストで、処理の結果だけを確かめるときは、`StandardTestDispatcher(testScheduler)` を渡してかまいません (今の `DefaultThreadRepositoryTest` の `repository` の関数)。
+
 ## 報告に含めること
 
 worker は、次のことを報告します。

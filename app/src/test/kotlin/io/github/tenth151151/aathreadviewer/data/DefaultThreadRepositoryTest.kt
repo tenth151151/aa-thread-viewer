@@ -139,7 +139,7 @@ class DefaultThreadRepositoryTest {
         }
 
     @Test
-    fun `読み込みと解析は渡されたディスパッチャーで行う`() =
+    fun `データ源を読む前に渡されたディスパッチャーへ切り替える`() =
         runTest {
             // 仕事を溜めるだけで、手で動かすまで実行しないディスパッチャーを渡す。
             // テスト用のディスパッチャーは、runTest とスケジューラーを共有しないと使えず、共有すると advanceUntilIdle が両方を進めてしまう。
@@ -169,7 +169,7 @@ class DefaultThreadRepositoryTest {
 
             val result = async { repository.loadThread("content://example/thread.dat") }
             advanceUntilIdle()
-            // 確認が失敗しても、溜まった仕事を流してから終わる。流さないと、取り消しが届かず、テストが終わらなくなる。
+            // 確認が失敗しても、溜まった仕事を流してから終わる。流さないと、runTest のタイムアウトまで待って失敗し、本当の失敗が隠れる。
             try {
                 assertFalse(result.isCompleted)
                 assertFalse(readStarted)
