@@ -12,7 +12,34 @@ description: 起動済みのエミュレータにアプリを入れて、dat を
 - エミュレータの起動、停止、設定の変更はしません。つながらないときは、手順 1 のとおり止めて伝えます。
 - 元に戻せない操作 (アプリのアンインストール、端末のデータの削除やリセットなど) は、依頼がなければしません。ただし、手順 7 で、自分が置いたファイル (控えたパス) を消すことは除きます。要ると思ったときは、止めて伝えます (`.claude/agents/worker.md` の決まりと同じです)。
 - 途中で止めるとき (手順 1、2、5、6 などでユーザーに伝えて止めるとき) も、それまでに端末に置いたファイルを、手順 7 のとおり消してから報告します。置いたものがなければ、消すものはありません。
-- 一時的なファイル (dat、スクリーンショット、`uiautomator dump` の出力) は、スクラッチパッドに置きます。リポジトリの中には置きません。
+- 確認の証拠 (スクリーンショット、`uiautomator dump` の出力、端末に置く dat) は、メインの作業ツリーの `.tmp/<ブランチ名>/` に置きます。どの worktree で作業しても、同じ場所です。ユーザーが見るためのファイルで、`.gitignore` されています。置き場所の決まりは `CLAUDE.md` の「開発環境」にあります。下書きの UTF-8 の dat などの途中のファイルは、スクラッチパッドに置きます。
+- 出力先は、相対パスではなく、メインの作業ツリーから作った絶対パスで書きます。
+  - メインの作業ツリーは、`git rev-parse --path-format=absolute --git-common-dir` が返すパスの 1 つ上のディレクトリです (`/post-merge-cleanup` と同じです)。
+  - 今いる作業ツリーの `--show-toplevel` から作ると、手で `git worktree add` した worktree では、証拠が worktree の中に分かれ、後片付けの一覧に出ません。
+  - 相対パスだと、カレントディレクトリによっては別の場所にファイルができます。
+  - ブランチ名は、今いる作業ツリーのものです。
+  - Bash ツールではシェルの変数が呼び出しをまたいで残らないので、`<証拠のディレクトリ>` を使う Bash の呼び出しごとに、次のコマンドをその呼び出しの中で設定し直し、`<証拠のディレクトリ>` は `"$evidence"` として使います。
+  - `git branch --show-current` が空 (HEAD が切り離されている) のときと、ブランチ名が `retro-log` か `retro-log/` で始まるときは、コマンドが止まるので、ファイルを置かず、止めて伝えます (`.tmp/retro-log/` はふりかえりの記録の場所です)。
+- 証拠のファイルは、上書きしません。撮り直すたびに前の証拠が消えないよう、書く前に、同じ名前のファイルがないかを確かめ、あれば `-2`、`-3` を付けた名前にします。次のコマンドの関数 `evidence_path` が、空いているパスを返します。呼び出しごとに設定し直すコマンドに含めます。
+- ファイル名の幹には、順番と何の画面かが分かる区別を付けます (例: `screen-01-home`、`window_dump-02-thread`)。
+- 書いたパスは、次の呼び出しで使うので、文章で控えます (シェルの変数は、呼び出しをまたいで残らないためです)。
+
+  ```bash
+  branch="$(git branch --show-current)"
+  [ -n "$branch" ] || { echo "HEAD が切り離されているので、証拠のディレクトリを決められません。" >&2; exit 1; }
+  case "$branch" in
+    retro-log | retro-log/*) echo "ブランチ名が retro-log か retro-log/ で始まるので、証拠のディレクトリを決められません。" >&2; exit 1 ;;
+  esac
+  common="$(git rev-parse --path-format=absolute --git-common-dir)" || { echo "メインの作業ツリーを調べられないので、証拠のディレクトリを決められません。" >&2; exit 1; }
+  evidence="$(dirname "$common")/.tmp/$branch"
+  mkdir -p "$evidence"
+  # 引数は、名前の幹と拡張子。同じ名前のファイルがあれば、-2、-3 を付けた空きのパスを返す。
+  evidence_path() {
+    local n=1 p="$evidence/$1.$2"
+    while [ -e "$p" ]; do n=$((n + 1)); p="$evidence/$1-$n.$2"; done
+    printf '%s\n' "$p"
+  }
+  ```
 
 ## 1. つながるかを確かめる
 
@@ -69,10 +96,12 @@ dat は `windows-31j` (CP932) の文字コードで、1 行が 1 件のレスで
 手順は次のとおりです。
 
 1. スクラッチパッドに、UTF-8 の dat を Write ツールで作ります。
-2. CP932 に変換します。
+2. CP932 に変換します。変換後の dat は、端末に置く確かめの dat なので、`<証拠のディレクトリ>` に出します。出力先は `evidence_path` で決め (例: `sample.dat`。あれば `sample-2.dat`)、使ったパスを控えます。以降の `<証拠の dat>` は、控えたパスです。
 
    ```bash
-   iconv -f UTF-8 -t CP932 <スクラッチパッド>/sample-utf8.dat > <スクラッチパッド>/sample.dat
+   dat="$(evidence_path sample dat)"
+   iconv -f UTF-8 -t CP932 <スクラッチパッド>/sample-utf8.dat > "$dat"
+   echo "$dat"
    ```
 
 3. 拡張文字のバイト列を確かめます。変換前のファイルの `①` と `髙` が、変換後に `87 40` と `fb fc` になっていれば、正しく変換できています。
@@ -80,7 +109,7 @@ dat は `windows-31j` (CP932) の文字コードで、1 行が 1 件のレスで
    ```bash
    printf '①髙' | iconv -f UTF-8 -t CP932 | od -An -t x1
    for b in '87 40' 'fb fc'; do
-     od -An -v -t x1 <スクラッチパッド>/sample.dat | tr '\n' ' ' | tr -s ' ' | grep -q " $b " && echo "$b あり" || echo "$b なし"
+     od -An -v -t x1 <証拠の dat> | tr '\n' ' ' | tr -s ' ' | grep -q " $b " && echo "$b あり" || echo "$b なし"
    done
    ```
 
@@ -95,11 +124,11 @@ dat は `windows-31j` (CP932) の文字コードで、1 行が 1 件のレスで
 ```bash
 adb shell ls /sdcard/Download/sample.dat
 # No such file or directory になれば、このパスに置く。ファイルがあれば sample-2.dat などで ls し直し、空いている名前を決める。
-adb push <スクラッチパッド>/sample.dat /sdcard/Download/sample.dat
+adb push <証拠の dat> /sdcard/Download/sample.dat
 adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/sample.dat
 ```
 
-- `push` とブロードキャストのパスは、`ls` で空いていると確かめたパスに合わせます (別の名前にしたときは、3 つの行すべてでその名前を使います。`push` の宛先の名前を変えるだけで、スクラッチパッドの元のファイルの名前は変えなくてかまいません)。
+- `push` とブロードキャストのパスは、`ls` で空いていると確かめたパスに合わせます (別の名前にしたときは、3 つの行すべてでその名前を使います。`push` の宛先の名前を変えるだけで、手順 3 で控えた `<証拠の dat>` の名前は変えなくてかまいません)。
 - 3 行目のスキャンのブロードキャストは、必須ではありません。Android 17 のエミュレータでは、送らなくても、ファイルの選択画面にファイルが出ました。まず `ls` と `push` だけを実行し、選択画面にファイルが出なかったときにブロードキャストを送ります。
 - 新しい Android では、このブロードキャストが非推奨のことがあり、効かないときがあります。送っても出ないときは、選択画面を開き直してから、ユーザーに伝えます。
 - 選択画面にファイルが出たかどうか (ブロードキャストを送ったかどうかも) を、エミュレータの版と一緒に報告に書きます。
@@ -113,16 +142,21 @@ dump は端末にファイルを書くので、最初の dump の前に、手順
 ```bash
 adb shell ls /sdcard/window_dump.xml
 adb shell uiautomator dump /sdcard/window_dump.xml
-adb exec-out cat /sdcard/window_dump.xml > <スクラッチパッド>/window_dump.xml
+dump="$(evidence_path window_dump-01-home xml)"   # 証拠のファイルは、evidence_path で上書きを避ける
+adb exec-out cat /sdcard/window_dump.xml > "$dump"
+echo "$dump"
 adb shell input tap <x> <y>
-adb exec-out screencap -p > <スクラッチパッド>/screen.png
+shot="$(evidence_path screen-01-home png)"
+adb exec-out screencap -p > "$shot"
+echo "$shot"
 ```
 
-- 押す場所は、`window_dump.xml` の該当する `node` の `bounds="[左,上][右,下]"` から、中心の座標を計算します。画面の表示が変わるたびに、dump を取り直します。
+- 端末の `/sdcard/window_dump.xml` は、dump のたびに同じパスへ上書きしてかまいません (自分が置いたファイルで、手順 7 で消します)。上書きを避けるのは、`<証拠のディレクトリ>` の側のファイルです。dump と画面ごとに、順番と画面が分かる名前 (`window_dump-02-thread`、`screen-02-thread` など) を付けます。
+- 押す場所は、控えた dump のファイル (`<証拠の dump>`) の該当する `node` の `bounds="[左,上][右,下]"` から、中心の座標を計算します。画面の表示が変わるたびに、dump を取り直します。
 - 座標は、dump から次のように探せます (ボタンの文字が `dat を開く` の例)。`bounds` の真ん中を `input tap` に渡します。
 
   ```bash
-  grep -o 'text="dat を開く"[^>]*bounds="\[[0-9,]*\]\[[0-9,]*\]"' <スクラッチパッド>/window_dump.xml
+  grep -o 'text="dat を開く"[^>]*bounds="\[[0-9,]*\]\[[0-9,]*\]"' <証拠の dump>
   # 例: bounds="[40,300][280,380]" なら、中心は x=(40+280)/2=160、y=(300+380)/2=340
   adb shell input tap 160 340
   ```
@@ -203,3 +237,4 @@ adb shell dumpsys window | grep -n 'type=navigationBars'
 - 確かめた操作と、見たもの (スクリーンショットの場所、dump の `text`)。
 - 確かめていないこと (戻したあとの見た目、システムバーの分の余白、スキャンのブロードキャストの効き目など)。
 - 端末に置いたファイルのうち、消したものと、消さずに残したもの (あれば)。消し方は、前の「7. 置いたファイルを消す」のとおりです。
+- 証拠を置いた `.tmp/<ブランチ名>/` の絶対パス (`<証拠のディレクトリ>` の中身) と、置いたファイルの名前。ユーザーが見るためのファイルです。

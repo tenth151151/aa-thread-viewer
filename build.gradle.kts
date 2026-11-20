@@ -30,7 +30,8 @@ plugins {
 
 // 対象は広く取り、外す場所を targetExclude に足す。対象を絞ると、新しいソースの場所を書き足し忘れたときに、検査から黙って漏れるため。
 // .claude/worktrees/ には git worktree が入る。作業中の .kt をメインの spotless が拾って check が落ちるのを防ぐため除外する。
-val spotlessTargetExclude = arrayOf("**/build/**", "**/.gradle/**", "**/.kotlin/**", "**/.claude/worktrees/**")
+// .tmp/ には確認の証拠などの一時ファイルが入る。使い捨ての .kt が check を落とさないよう除外する。
+val spotlessTargetExclude = arrayOf("**/build/**", "**/.gradle/**", "**/.kotlin/**", "**/.claude/worktrees/**", "**/.tmp/**")
 
 spotless {
     kotlin {
