@@ -15,7 +15,8 @@
     "mounts": [
         "source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume",
         "source=gh-config-${devcontainerId},target=/home/vscode/.config/gh,type=volume",
-        "source=gradle-cache-${devcontainerId},target=/home/vscode/.gradle,type=volume"
+        "source=gradle-cache-${devcontainerId},target=/home/vscode/.gradle,type=volume",
+        "source=android-home-${devcontainerId},target=/home/vscode/.android,type=volume"
     ],
     "init": true,
     "customizations": {

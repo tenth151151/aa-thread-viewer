@@ -75,10 +75,10 @@ trap remove_sudo EXIT
 # -------------------------------------------------------------
 # 名前付きボリュームの所有者を自分にする
 #   名前付きボリュームは root 所有で作られることがあり、
-#   そのままだと Claude Code や gh がログイン情報を、Gradle がキャッシュを書き込めない。
+#   そのままだと Claude Code や gh がログイン情報を、Gradle がキャッシュを、Android の debug 署名鍵 (~/.android) を書き込めない。
 #   ※ Claude Code が ~/.claude を使う前に済ませるため、インストールより先に実行する。
 # -------------------------------------------------------------
-for dir in "${CLAUDE_CONFIG_DIR:-}" "$HOME/.config/gh" "$HOME/.gradle"; do
+for dir in "${CLAUDE_CONFIG_DIR:-}" "$HOME/.config/gh" "$HOME/.gradle" "$HOME/.android"; do
   [[ -n "$dir" ]] || continue
   sudo mkdir -p "$dir"
   # Gradle のボリュームは大きく育つので、所有者が既に自分なら再帰的な chown を飛ばす。

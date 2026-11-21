@@ -182,4 +182,8 @@ ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tool
 # * ~/.gradle : 依存関係やラッパーのキャッシュ。ボリュームをマウントしたとき vscode ユーザーの持ち物になるよう先に作成する。
 RUN mkdir -p /home/vscode/.gradle
 
+# Android の debug 署名鍵の保存先
+# * ~/.android : debug.keystore の保存先。ボリュームをマウントしたとき vscode ユーザーの持ち物になるよう先に作成する。
+RUN mkdir -p /home/vscode/.android
+
 USER root
