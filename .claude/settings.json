@@ -183,6 +183,8 @@
       "Skill(mattpocock-skills:implement *)",
       "Skill(mattpocock-skills:implement-spec)",
       "Skill(mattpocock-skills:implement-spec *)",
+      "Skill(mattpocock-skills:retro)",
+      "Skill(mattpocock-skills:retro *)",
       "Skill(mattpocock-skills:setup-matt-pocock-skills)",
       "Skill(mattpocock-skills:setup-matt-pocock-skills *)",
       "Bash(git push)",

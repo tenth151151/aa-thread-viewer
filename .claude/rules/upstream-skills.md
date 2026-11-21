@@ -18,7 +18,7 @@
 
 - 計画と Issue: `to-spec`、`to-tickets`、`triage`、`wayfinder`
 - 設定: `setup-matt-pocock-skills` は実行せず、`docs/agents/` と `CLAUDE.md` の節を手で保ちます。実行すると上流の既定の内容で `docs/agents/` と `CLAUDE.md` の節が上書きされるため、deny で止めています。
-- 問いかけと整理: `grill-with-docs`、`grill-me`、`grilling`、`wait-what`、`handoff`、`retro`
+- 問いかけと整理: `grill-with-docs`、`grill-me`、`grilling`、`wait-what`、`handoff`
 - 設計と調査: `domain-modeling`、`codebase-design`、`diagnosing-bugs`、`research`、`prototype`
 
 使わないスキルと、代わりに使うものは、次のとおりです。
@@ -29,8 +29,11 @@
 | `code-review` | `/pre-pr-check` と、組み込みの `/code-review` |
 | `pr` | `/squash-commits` のあとの PR の作成 |
 | `implement`、`implement-spec` | supervisor、worker、reviewer、helper の分担 |
+| `retro` | `/post-merge-cleanup` の手順 5 |
 
-- `tdd`、`code-review`、`pr`、`implement`、`implement-spec` は、`.claude/settings.json` の deny でも止めています。`setup-matt-pocock-skills` も、deny で止めています (理由は上の「設定」の項目です)。このほか、モデルが自分で呼べるのに使うスキルの一覧にない `wizard` と `writing-for-agents` も、deny で止めています。
+上の表の `retro` の代わりの手順 5 は、マージのあとのふりかえりです。マージの前に途中でふりかえりたいときも、ユーザーに頼まれたら、supervisor がふりかえります。対象は、そのときまでの会話と作業 (ブランチの差分、コミット、reviewer や `/code-review` の指摘など) です。PR の番号から調べる手順は使いません。手順 5 の「探す観点」で探し、見つけた点は `.tmp/retro-log/` の記録に足さず、その場でユーザーに見せるだけにします。マージの前は PR の番号がないことがあり、記録の「起きた PR」の欄を書けないためです。見せるときに、別のセッションでマージのあとのふりかえりをすると、見せた点は記録に引き継がれないことを、ユーザーに伝えます。
+
+- `tdd`、`code-review`、`pr`、`implement`、`implement-spec`、`retro` は、`.claude/settings.json` の deny でも止めています。`setup-matt-pocock-skills` も、deny で止めています (理由は上の「設定」の項目です)。`retro` は、`mattpocock-skills` v1.3.2 の `retro/SKILL.md` が `disable-model-invocation: true` なので、モデルはもともと Skill ツールで呼べません。そのため、この deny は念のためのものです。中で deny で止めている `writing-for-agents` を呼ぶ (同じ `SKILL.md` の手順 1) ので、ユーザーが `/retro` と打ったときにも止めたい意図ですが、この deny が効くかは確かめていません。このほか、モデルが自分で呼べるのに使うスキルの一覧にない `wizard` と `writing-for-agents` も、deny で止めています。
 - deny には、スキルごとに 2 つの形を書きます。引数なしの `Skill(mattpocock-skills:tdd)` と、引数つきの `Skill(mattpocock-skills:tdd *)` です。前者は名前の完全一致、後者は引数つきの呼び出しの前方一致です。名前空間つきの形だけで書きます。名前だけの形 (`Skill(tdd)` など) は、このプロジェクトの `/tdd` や、組み込みの `code-review` まで止めるおそれがあるので、書きません。
 - 上の表と一覧にないスキルは、使う前にユーザーに相談します。deny で止めているスキルを使いたいときも、deny を外すかをユーザーに相談します。
 
@@ -40,10 +43,10 @@
 
 | 区分 | 使うスキル |
 |---|---|
-| ユーザーしか呼べない | `triage`、`to-spec`、`to-tickets`、`wayfinder`、`grill-with-docs`、`grill-me`、`wait-what`、`handoff`、`retro` |
+| ユーザーしか呼べない | `triage`、`to-spec`、`to-tickets`、`wayfinder`、`grill-with-docs`、`grill-me`、`wait-what`、`handoff` |
 | モデルも呼べる | `grilling`、`domain-modeling`、`codebase-design`、`diagnosing-bugs`、`research`、`prototype` |
 
-使わないスキルのうち、`implement`、`implement-spec`、`setup-matt-pocock-skills` も、ユーザーしか呼べません。
+使わないスキルのうち、`implement`、`implement-spec`、`setup-matt-pocock-skills`、`retro` も、ユーザーしか呼べません。
 
 ユーザーしか呼べないスキルを使いたいときは、エージェントは自分で呼ぼうとしません。サブエージェント (worker、helper、reviewer など) は、使いたいスキルを supervisor に伝えます。supervisor が、ユーザーに、プラグインの名前空間つきのコマンド (例: `/mattpocock-skills:triage`) を打ってもらうよう頼みます。名前空間なしの形 (`/triage`) で呼べるかは確かめていないので、名前空間つきの形だけを案内します。
 
