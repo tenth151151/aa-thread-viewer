@@ -78,7 +78,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 - `Success` が出ることを確かめます。
-- `INSTALL_FAILED_UPDATE_INCOMPATIBLE` (署名の不一致) で失敗したときは、**アンインストールせずに止めて伝えます**。アンインストールすると、端末のアプリのデータが消えるためです。原因でよくあるのは、debug の署名鍵 (`~/.android/debug.keystore`) が、端末に入っているアプリを入れたときと違うことです。コンテナを作り直すと、鍵が変わることがあります。アンインストールするかは、ユーザーが決めます。
+- `INSTALL_FAILED_UPDATE_INCOMPATIBLE` (署名の不一致) で失敗したときは、**アンインストールせずに止めて伝えます**。アンインストールすると、端末のアプリのデータが消えるためです。原因でよくあるのは、debug の署名鍵 (`~/.android/debug.keystore`) が、端末に入っているアプリを入れたときと違うことです。debug の署名鍵は、`~/.android/debug.keystore` がない状態で debug をビルドする (`./gradlew :app:assembleDebug`) と、そこに作られます。`~/.android` は、コンテナを作り直しても鍵が残るように、名前付きボリュームにしています。ボリュームを消すと、鍵も消えて、次のビルドで新しい鍵が作られます。別のフォルダでコンテナを開いたときや、ホストの Android Studio で入れたアプリは、鍵が違うことがあります。アンインストールするかは、ユーザーが決めます。
 - 入った版は、`adb shell dumpsys package <パッケージ> | grep versionName` で確かめられます。
 
 ## 3. dat を作る
