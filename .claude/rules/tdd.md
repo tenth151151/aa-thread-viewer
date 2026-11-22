@@ -21,8 +21,9 @@
   - 抑える必要があると思ったときは、作業を止めて、ユーザーに相談します (worker は supervisor に伝えます)。
   - この決まりは、テストを書かない変更 (Dependabot の PR で落ちた CI を直すときなど) や、ドキュメント、設定の変更にも当てはまります。
 - カバレッジの基準値 (`app/build.gradle.kts` の `kover` の `minBound`) は、下げません。測る対象からの除外 (`annotatedBy`、`inheritedFrom`、`classes` など) も、`check` を通すために足しません。カバレッジが足りないときは、テストを足します。
-  - `app/build.gradle.kts` に既にある除外 (`@Composable` の関数、Activity と Application とその親のクラス、`*ComposableSingletons*`) は、計装テストを使わないので測れないものを外す前提です。この決まりの対象外です。
+  - `app/build.gradle.kts` に既にある除外 (`@Composable` の関数、Activity と Application とその親のクラス、`*ComposableSingletons*`、Hilt と Dagger が生成したクラス) は、測れないものを外す前提です。Composable と Activity と Application は計装テストを使わないため、Hilt と Dagger の生成クラスは、単体テストが Hilt を使わないため、測れません。この決まりの対象外です。
   - Activity や Application の親をライブラリのクラス (例: `AppCompatActivity`) に変えたときに、そのクラスを `inheritedFrom` に足すのは、今の方針 (Activity と Application を外す) を保つための追加なので、相談せずに足してかまいません。Kover は、ライブラリのクラスの継承をたどれないためです。
+  - Kover や AGP などの版を上げて、Hilt と Dagger の生成クラスが Kover の報告に出てきたときに、それを外す `classes` のパターン (例: `*_HiltComponents_*`) を足すのは、今の方針 (Hilt と Dagger の生成クラスを外す) を保つための追加なので、相談せずに足してかまいません。ただし、足すパターンが手で書いたクラス (`app/src/main/kotlin/` の下のクラス) に当たらないことを、足す前に確かめます。当たるときは、相談します。
   - それ以外の除外を足す必要があるときや、基準値を変えたいときは、作業を止めて、ユーザーに相談します (worker は supervisor に伝えます)。
   - この決まりは、テストを書かない変更にも当てはまります。
 - 実行して確認していないテストや実装は、確認済みとして報告しません。実行できなかったときは、そう明記します。

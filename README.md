@@ -161,6 +161,7 @@ PR の分け方は次のとおりです。
 - AGP と Gradle Wrapper は、影響が大きいので、それぞれ単独の PR になります。
 - AndroidX (Compose BOM を含む)、Kotlin、その他 (minor と patch)、GitHub Actions は、それぞれまとめた 1 つの PR になります。
 - ビルド用の constraints (`gradle/libs.versions.toml` の bouncycastle、jose4j、jdom2、commons-lang3、httpclient、freemarker、guava) の minor と patch は、プラグインが試していない版で壊れたときに切り分けやすいよう、その他とは別に、まとめた 1 つの PR になります。
+- Dagger と Hilt のライブラリ、Hilt の Gradle プラグイン、KSP のプラグインの minor と patch は、生成したコードの警告で CI が落ちたときに切り分けやすいよう、その他とは別に、まとめた 1 つの PR になります。`androidx.hilt` は AndroidX の PR に入ります。
 - その他の major の更新は、1 件ずつ単独の PR になります。
 
 Kotlin のバージョンは、AGP が要求する KGP 以上にそろえます。詳しくは `gradle/libs.versions.toml` のコメントを参照してください。

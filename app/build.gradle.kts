@@ -7,6 +7,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kover)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 // JDK と Android SDK のバージョンは、リポジトリのルートの versions.properties が唯一の正である。
@@ -68,7 +70,7 @@ android {
         // 警告もエラーとして扱う (エラーがあればビルドは既定で失敗する)。
         warningsAsErrors = true
 
-        // テストのコードと、生成されたコード (将来の Hilt や KSP) も lint の対象にする。
+        // テストのコードと、生成されたコード (Hilt や KSP) も lint の対象にする。
         checkTestSources = true
         checkGeneratedSources = true
 
@@ -92,6 +94,12 @@ kotlin {
     }
 }
 
+ksp {
+    // Kotlin と lint にそろえて、KSP の警告もエラーにする。KSP の既定は false である。
+    // KSP を上げた PR で、プロセッサの警告により CI が落ちることがある。これは意図した動きで、警告に対処してから取り込む。
+    allWarningsAsErrors = true
+}
+
 // カバレッジの測定 (Kover)。測るのは JVM の単体テストだけで、計装テスト (androidTest) は使わない。
 // そのため、画面 (Composable) と Activity は測れない。測る対象から外し、ViewModel や Repository などのロジックを残す。
 kover {
@@ -104,6 +112,19 @@ kover {
                 inheritedFrom("android.app.Activity", "androidx.activity.ComponentActivity", "android.app.Application")
                 // Compose コンパイラが、ラムダなどを置くために作るクラス。
                 classes("*ComposableSingletons*")
+                // Hilt と Dagger が生成したクラス。単体テストは Hilt を使わないので測れない。
+                // 手で書いた Module (di/ の DataModule など) は、外さずに測る。
+                classes(
+                    "*_Factory",
+                    "*_Factory_Impl",
+                    "*Module_*Factory*",
+                    "*_HiltModules*",
+                    "*_MembersInjector",
+                    "*.Hilt_*",
+                    "*_GeneratedInjector",
+                    "hilt_aggregated_deps.*",
+                    "dagger.hilt.internal.*",
+                )
             }
         }
 
@@ -132,6 +153,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.core)
     implementation(libs.commons.text)
+    implementation(libs.hilt.android)
+    implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
+    ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -155,3 +179,28 @@ dependencies {
         add("androidLintTool", libs.guava)
     }
 }
+
+// KSP のプロセッサのクラスパス (kspDebugKotlinProcessorClasspath など) と、Hilt の注釈プロセッサのクラスパス (hiltAnnotationProcessorDebug など) にも、上と同じ constraints を足す。
+// ksp で始まり ProcessorClasspath で終わる名前と、hiltAnnotationProcessor で始まる名前の configuration を、作られたときに拾う。
+// AGP の variant やテストの configuration が増えても、書き足さずに当たるようにするため。
+// Hilt のコンパイラ (KSP のプロセッサ) と Hilt の Gradle プラグインの注釈プロセッサが、guava などの推移的な依存関係を引き込む。
+configurations
+    .matching {
+        (it.name.startsWith("ksp") && it.name.endsWith("ProcessorClasspath")) ||
+            it.name.startsWith("hiltAnnotationProcessor")
+    }.configureEach {
+        val configurationName = name
+        dependencies {
+            constraints {
+                add(configurationName, libs.bouncycastle.bcprov)
+                add(configurationName, libs.bouncycastle.bcpkix)
+                add(configurationName, libs.bouncycastle.bcutil)
+                add(configurationName, libs.jose4j)
+                add(configurationName, libs.jdom2)
+                add(configurationName, libs.commons.lang3)
+                add(configurationName, libs.httpclient)
+                add(configurationName, libs.freemarker)
+                add(configurationName, libs.guava)
+            }
+        }
+    }

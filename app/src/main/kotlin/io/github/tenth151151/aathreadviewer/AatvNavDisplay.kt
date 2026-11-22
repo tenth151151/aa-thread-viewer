@@ -4,7 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -49,7 +49,12 @@ fun AatvNavDisplay(modifier: Modifier = Modifier) {
                     )
                 }
                 entry<ThreadKey> { key ->
-                    ThreadScreen(viewModel = viewModel(factory = ThreadViewModel.factory(key.uri)))
+                    ThreadScreen(
+                        viewModel =
+                            hiltViewModel<ThreadViewModel, ThreadViewModel.Factory>(
+                                creationCallback = { it.create(key.uri) },
+                            ),
+                    )
                 }
             },
     )

@@ -73,7 +73,7 @@ fun XxxContent(
 #### ViewModel のスコープ
 
 - `NavDisplay` を使うときは、ViewModel を画面のエントリーにスコープします (同じ画面がバックスタックに複数あるときは、エントリーごとに別の ViewModel になります)。
-- 画面をまたいで ViewModel を共有したいときは、Hilt に移る目安に当たるので、必ず相談します。
+- 画面をまたいで ViewModel を共有したいとき (Activity にスコープして複数の画面で使うものや、複数の画面のエントリーで共有するものを作るとき) は、必ずユーザーに相談します。画面のエントリーにスコープする今の形から外れるためです。
 
 ## 層
 
@@ -91,77 +91,47 @@ UI 層とデータ層の 2 層で作ります。
 
 - 切り替えは、処理をするクラス自身が `withContext` で行います。呼び出し側 (ViewModel など) には任せません。
 - 切り替えに使うディスパッチャーは、コンストラクタで受け取ります。`Dispatchers.IO` などを `withContext` やコルーチンの起動に直接書きません。公式のページが、`Dispatchers` を直接書かず、アプリではディスパッチャーを注入するよう求めているためです。JVM のテストで動かさないデータ源の実装 (`ContentResolverDatSource` など) も対象です。
-- ディスパッチャーの引数に、既定値を付けません。`AppContainer` で必ず渡します。公式のページの例は、既定値 (`Dispatchers.Default`) を付けていますが、ページに既定値の理由の説明はありません。本プロジェクトでは、`AppContainer` での渡し忘れをコンパイルで見つけるため、テストで差し替え忘れたときに本物のディスパッチャーで動くのを防ぐために、既定値を付けません。
-- `AppContainer` で渡すディスパッチャーは、ブロッキングの I/O をするなら `Dispatchers.IO`、CPU の処理だけなら `Dispatchers.Default`、両方を 1 つの流れでするなら `Dispatchers.IO` にします。この使い分けは、公式のページがはっきり書いているものではなく、公式の例に合わせた本プロジェクトの決まりです。
-- データ源と、それを使う Repository が、どちらもブロッキングの処理を含むときは、両方が自分で切り替えます (`ContentResolverDatSource` と `DefaultThreadRepository`)。`AppContainer` は、両方に同じ `Dispatchers.IO` を渡します。解析は、データ源の `read` に渡すブロックの中で動き、データ源のディスパッチャーで動くので、Repository に別のディスパッチャーを渡しても、解析のスレッドは変わらないためです。Repository の切り替えは、データ源の実装が切り替えるかどうかに頼らず、自分の関数を main-safe にするためのものです。二重の `withContext` は、この決まりどおりです。
+- ディスパッチャーの引数に、既定値を付けません。Hilt の Module (`di/` の `DispatchersModule`) の qualifier `@Dispatcher(AatvDispatchers.<種類>)` で必ず渡します。`AatvDispatchers` の種類は今は `IO` だけです。`Default` などが要るときは、enum に種類を足し、`DispatchersModule` に `@Provides` を足します。公式のページの例は、既定値 (`Dispatchers.Default`) を付けていますが、ページに既定値の理由の説明はありません。本プロジェクトでは、渡し忘れをコンパイルで見つけるため、テストで差し替え忘れたときに本物のディスパッチャーで動くのを防ぐために、既定値を付けません。渡し忘れの確かめは、「Hilt の注意」の「渡し忘れ」の項にあります。
+- `DispatchersModule` で渡すディスパッチャーは、ブロッキングの I/O をするなら `Dispatchers.IO`、CPU の処理だけなら `Dispatchers.Default`、両方を 1 つの流れでするなら `Dispatchers.IO` にします。この使い分けは、公式のページがはっきり書いているものではなく、公式の例に合わせた本プロジェクトの決まりです。
+- データ源と、それを使う Repository が、どちらもブロッキングの処理を含むときは、両方が自分で切り替えます (`ContentResolverDatSource` と `DefaultThreadRepository`)。両方に、同じ `@Dispatcher(AatvDispatchers.IO)` の `Dispatchers.IO` を渡します。解析は、データ源の `read` に渡すブロックの中で動き、データ源のディスパッチャーで動くので、Repository に別のディスパッチャーを渡しても、解析のスレッドは変わらないためです。Repository の切り替えは、データ源の実装が切り替えるかどうかに頼らず、自分の関数を main-safe にするためのものです。二重の `withContext` は、この決まりどおりです。
 - ViewModel は対象外です。`viewModelScope` は Main に決まっているので、ディスパッチャーを注入しません。テストでは `Dispatchers.setMain` で差し替えます (`/tdd` スキルの「ViewModel のテスト」の節)。
 - JVM でテストするクラスは、渡したディスパッチャーで処理が動くことを、テストで確かめます。書き方は、`/tdd` スキルの「ディスパッチャーを受け取るクラスのテスト」の節にあります。
 
 ## DI
 
-手動の DI から始め、コンストラクタ注入を守ります。
+Hilt を使い、コンストラクタ注入を守ります。
 
-- `Application` に `AppContainer` を置きます (JetNews と同じ形)。`AppContainer` は、Repository などを作って ViewModel に渡す入れ物です。
-- `Application` のクラス (`AatvApplication`) は、`AndroidManifest.xml` の `<application>` に `android:name` で登録します。
-- Repository は、`AppContainer` で作ります。
+- `Application` のクラス (`AatvApplication`) に `@HiltAndroidApp` を付け、`AndroidManifest.xml` の `<application>` に `android:name` で登録します。`MainActivity` には `@AndroidEntryPoint` を付けます。
 - クラスは、依存するものをコンストラクタで受け取ります。クラスの中で依存先を生成したり、グローバルな状態から取り出したりしません。
+- Repository とデータ源は、interface と、`@Inject constructor` の実装にします。Module の `@Binds` で、interface に実装を結び付けます。
+- 自分で持っていないクラス (Android の framework のクラスや外部のライブラリのクラス。`ContentResolver`) は、コンストラクタに `@Inject` を付けられないので、Module の `@Provides` で渡します。公式のページは、外部のライブラリのクラス (Retrofit、OkHttpClient、Room のデータベースなど) は自分で持っていないので、コンストラクタ注入ができず、Hilt の Module の `@Provides` を付けた関数で渡せるとしています。
+- enum の値のように、`@Inject constructor` で作れない値 (`BoardType`) も、Module の `@Provides` で渡します。
+- Hilt の Module は、`di/` に置きます。`@InstallIn(SingletonComponent::class)` を付けます。
+- 同じ型の束縛が複数あるときは、qualifier で区別します (ディスパッチャーは、「層」の節の「スレッドの切り替え」のとおり `@Dispatcher(AatvDispatchers.IO)` です)。`Context` が要るときは、`@ApplicationContext` で受け取ります。
 - ディスパッチャーの受け取り方は、「層」の節の「スレッドの切り替え」に従います。
-- ViewModel は、`ViewModelProvider.Factory` で作ります。ViewModel の `companion object` に、`viewModelFactory { initializer { … } }` で Factory を作る関数を置きます。`initializer` の中で、`ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY` から `Application` を取り、その `AppContainer` の Repository を ViewModel のコンストラクタに渡します。画面のキーの値 (Uri など) は、この関数の引数からコンストラクタに渡します (例: `ThreadViewModel.factory(uri)`)。画面 (`XxxScreen` を呼ぶ側) は、`viewModel(factory = …)` で ViewModel を受け取ります。
+- ViewModel には `@HiltViewModel` を付けます。
+  - 画面のキーの値 (Uri など) を受け取る ViewModel は、assisted injection にします。コンストラクタに `@AssistedInject` を付け、キーの値の引数に `@Assisted` を付けます。ViewModel の中に `@AssistedFactory` の interface (`Factory`) を置き、`@HiltViewModel(assistedFactory = ThreadViewModel.Factory::class)` で結び付けます。
+  - 画面 (`XxxScreen` を呼ぶ側。`AatvNavDisplay` のエントリー) は、`hiltViewModel<XxxViewModel, XxxViewModel.Factory>(creationCallback = { it.create(key.uri) })` で ViewModel を受け取ります。公式の Navigation 3 のレシピは、この形 (assisted injection と `creationCallback`) で、画面のキーを ViewModel に渡しています。
+  - `hiltViewModel` は、`androidx.hilt.lifecycle.viewmodel.compose` のものを使います。`androidx.hilt.navigation.compose` のものは、非推奨なので使いません。
+- 単体テストは Hilt を使いません。Fake を、ViewModel のコンストラクタに渡します。
 
-### Hilt に移る目安
+### Hilt の注意
 
-公式の Architecture recommendations は、Hilt か手動の DI を、小さなアプリで選べるものとしています。プロジェクトが複雑なら Hilt を使うとして、次を例に挙げています。
+使っている版は、Hilt 2.60.1、KSP 2.3.14、androidx.hilt 1.4.0 です。AGP 9.5.1 と Kotlin 2.4.21 (どちらも `gradle/libs.versions.toml`)、JDK 25 (`versions.properties`) で、`./gradlew check assembleDebug` が通ることを確かめています。次は、版を上げたり、足したりするときの注意です。
 
-- 複数の画面が ViewModel を持つ。
-- WorkManager を使う。
-- ナビゲーションのバックスタックにスコープした ViewModel がある。
-
-本プロジェクトでは、次のどれかに当たるときを、移る目安にします。
-
-- ViewModel を持つ画面が 2 つ以上になったとき。数えるのは ViewModel を持つ画面だけです。ViewModel を持たない画面は数えません。ViewModel を持つ 2 つ目の画面を作る変更 (または、ViewModel を持たない画面に ViewModel を足して 2 つ目にする変更) が、ちょうど目安に当たり、必ず相談になります。
-- WorkManager を使うとき。
-- 画面をまたいで共有するために作る ViewModel (Activity にスコープして複数の画面で使うものや、複数の画面のエントリーで共有するもの) を作るとき。
-  - 公式は「ナビゲーションのバックスタックにスコープした ViewModel」を例に挙げています。本プロジェクトでは、画面をまたいで共有するものだけを数えます。どの ViewModel が共有に当たらないかは、「画面の切り替え」の節の「ViewModel のスコープ」にあります。
-
-依頼を出す監督と、依頼を受けた worker は、どちらも作業を始める前に、依頼が目安に当たるかを確かめます。当たるときは、worker は作業を始めずに監督に伝えます。監督はユーザーに、移るかを相談します。監督も worker も、自分で移ることはしません。監督や worker を通さずにアプリのコードを変えるときも、変える人が作業を始める前に同じように確かめ、当たるときは作業を始めずにユーザーに相談します。reviewer は、変更が目安に当たるときに報告します。これは、確かめ漏れに気づくための二重の確認です。
-
-相談の結果、移らないと決めたときは、その決定を、下の「移らないと決めたこと」の小見出しに書き足します。「移らないと決めたこと」に書いた目安に当たる状態のまま作業を続けるときは、同じことを相談し直しません。新しく別の目安に当たったときは、相談します。
-
-#### 移らないと決めたこと
-
-まだありません。
-
-### Hilt に移るときの手順と注意
-
-使い捨てのプロジェクトで、Hilt 2.60.1、KSP 2.3.12、androidx.hilt 1.4.0 (`hilt-lifecycle-viewmodel-compose`) が、JDK 25、AGP 9.4.1、Kotlin 2.4.21 で、回避策なしで `assembleDebug testDebugUnitTest check` を通ることを確かめています。`kotlin-metadata-jvm` の回避策は要りませんでした。移るときは、その時点の最新の版で、もう一度ビルドを確かめます。
-
-手順は次のとおりです。
-
-1. `gradle/libs.versions.toml` に、次を足します。
-   - 版を 3 つ (`ksp`、`hilt`、`androidxHilt`)。
-   - ライブラリを 3 つ (`hilt-android`、`hilt-compiler`、`androidx.hilt:hilt-lifecycle-viewmodel-compose`)。
-   - プラグインを 2 つ (`com.google.devtools.ksp`、`com.google.dagger.hilt.android`)。
-2. root の `build.gradle.kts` の `plugins` に、2 つのプラグインを `apply false` で足します。
-3. `app/build.gradle.kts` に、2 つのプラグインと、`implementation(hilt-android)`、`implementation(androidx-hilt-lifecycle-viewmodel-compose)`、`ksp(hilt-compiler)` を足します。
-4. 今の `Application` (`AppContainer` を持つもの) に `@HiltAndroidApp` を付けます。`MainActivity` に `@AndroidEntryPoint` を付けます。
-5. Repository は、interface と、`@Inject constructor` の実装にします。`@Module` と `@InstallIn(SingletonComponent::class)` を付けたクラスの `@Binds` で、interface に実装を結び付けます。
-6. ViewModel に `@HiltViewModel` と `@Inject constructor` を付けます。
-7. `AppContainer` と、手動の ViewModel の Factory を外します。Hilt の Module と `@HiltViewModel` に置き換えるので、2 つの DI を並べて残しません。
-8. 画面は、`androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel` を使います。`androidx.hilt.navigation.compose.hiltViewModel` は非推奨なので使いません。ViewModel を受け取る画面と、状態を持たない Composable の分け方は、「画面の設計」の節のとおりです。
-9. 単体テストは Hilt を使いません。Fake を、ViewModel のコンストラクタに渡します。
-
-注意は次のとおりです。
-
-- KSP 用のクラスパス (`ksp` で始まる `…ProcessorClasspath` など) には、脆弱性の対策で入れているビルド用の constraints (root の `buildscript` と `androidLintTool` のもの) が効きません。移ったあとに Dependabot alerts が出たら、constraints を足す必要があるかを確かめます。
-- 警告を厳しく扱う設定を入れているため、移った直後に、Hilt や KSP が生成したコードの警告でビルドが落ちることがあります。
-  - 設定の内容: `app/build.gradle.kts` で、Kotlin のコンパイラの `allWarningsAsErrors` と `extraWarnings`、lint の `checkGeneratedSources` と `checkTestSources` を有効にしています。Java のコンパイラの警告は、エラーにしていません (`JavaCompile` の `-Werror` がありません)。
-  - 生成コードで効くもの: Dagger と Hilt は、KSP で動かしても Java のコードを生成するとされています (公式のページでは確かめられていません。移るときに確かめます)。そのとおりなら、生成されたコードの警告で効くのは、主に lint の `checkGeneratedSources` です。Kotlin の `allWarningsAsErrors` と `extraWarnings` は、手で書いた Kotlin のコードに効きます。Kotlin を生成するプロセッサの出力に効くかは、下の「未確認のこと」のとおり確かめていません。テストのソースも、lint の対象です。
-  - 未確認のこと: KSP には、警告をエラーにする KSP 自身の設定があるとされています。そのため、Kotlin の `allWarningsAsErrors` で、KSP のプロセッサの警告がエラーになるとは限りません。この設定の有無と、プロセッサの警告がエラーになるかは、移るときに公式のページとビルドで確かめます。上の確認は、警告をエラーにする設定がない状態で行ったもので、これらは確かめていません。
-  - 移るときにすること: `./gradlew check assembleDebug` で警告を確かめます。直せない警告があるときは、どれを外すか (生成コードを対象から外す、検査を無効にするなど) をユーザーに相談します。
+- 生成コードの警告:
+  - 確かめた事実: 上の版では、KSP が生成したものは `.java` のファイルだけでした。lint の `checkGeneratedSources` を有効にしたまま、警告は出ませんでした。
+  - 警告を厳しく扱う設定 (`app/build.gradle.kts` の Kotlin のコンパイラの `allWarningsAsErrors` と `extraWarnings`、lint の `checkGeneratedSources` と `checkTestSources`) は、版を上げたあとに、生成コードの警告でビルドが落ちることがあります。Java のコンパイラの警告は、エラーにしていません (`JavaCompile` の `-Werror` がありません)。
+  - KSP 自身の `allWarningsAsErrors` (KSP の既定は false) を、`app/build.gradle.kts` の `ksp` で有効にしています。KSP の警告が出たことがないので、この設定で実際にエラーになるところは確かめていません。
+  - 直せない警告があるときは、どれを外すか (生成コードを対象から外す、検査を無効にするなど) を、ユーザーに相談します。
+- 生成クラスのカバレッジ: Hilt と Dagger が生成したクラスは、Kover の測る対象から外しています (`.claude/rules/tdd.md` の「運用」の節)。手で書いた Module (`di/`) は測る対象に残します。
+  - Dagger のコンポーネント (`DaggerAatvApplication_HiltComponents_SingletonC`) は、今の Kover の除外のパターンのどれにも当たりません。それでも、今の Kover の報告 (`report.xml`) には出ていません (Hilt 2.60.1、Kover 0.9.11 で確かめました)。報告に出ない理由は、確かめていません。
+  - Kover や AGP などの版を上げて報告に出てきたときは、生成クラスの除外として、`classes` のパターン (例: `*_HiltComponents_*`) を足します。足してよい条件は、`.claude/rules/tdd.md` の「運用」の節のとおりです。
+- プロセッサのクラスパスの脆弱性対策: KSP のプロセッサのクラスパス (`ksp` で始まり `ProcessorClasspath` で終わる configuration) と、Hilt の Gradle プラグインが作る注釈プロセッサのクラスパス (`hiltAnnotationProcessor` で始まる configuration) にも、`androidLintTool` と同じ constraints を足しています (`app/build.gradle.kts`)。Hilt を上げたあとに Dependabot alerts が出たら、constraints を見直します。
 - Dagger 2.60 以降では、Hilt の Gradle プラグインを使うとき、プラグインが管理するフラグを設定すると、エラーになります。
-- `.github/dependabot.yml` のグループは、KSP と Hilt をどう扱うかを、移るときに決めます。
-- WorkManager がきっかけで移るときは、Worker に依存を注入するための追加の設定が要ります。公式の Hilt と Jetpack のページ (出典の節) では、`androidx.hilt:hilt-work` と、追加の注釈プロセッサ (`androidx.hilt:hilt-compiler`) を足し、Worker に `@HiltWorker` を付け、`Application` で WorkManager の設定に `HiltWorkerFactory` を渡し、マニフェストから WorkManager の既定の初期化を外すとしています。この `androidx.hilt:hilt-compiler` は、手順 3 の `hilt-compiler` (Dagger の `com.google.dagger:hilt-compiler`) とは別のライブラリなので、カタログの別名も分けます。版と書き方は、移るときに公式のページで確かめます。
-- 移るときに決めることは、ユーザーに相談します。
+- `.github/dependabot.yml` の `hilt-ksp` グループに、Dagger と Hilt のライブラリ、Hilt の Gradle プラグイン、KSP のプラグインをまとめています。生成コードの警告で CI が落ちたときに、ほかの更新と切り分けやすくするためです。
+- 渡し忘れ: ディスパッチャー (`@Dispatcher(AatvDispatchers.IO)` など) の渡し忘れは、Dagger のコンパイル時の検査で見つかります。ほかの束縛の渡し忘れは確かめていません。使い捨てのコピーで `DispatchersModule` の `@Provides` を外すと、`./gradlew assembleDebug` が `hiltJavaCompileDebug` で `[Dagger/MissingBinding]` のエラー (`cannot be provided without an @Provides-annotated method`) になりました (Hilt 2.60.1)。
+- WorkManager を使うときは、Worker に依存を注入するための追加の設定が要ります。公式の Hilt と Jetpack のページ (出典の節) では、`androidx.hilt:hilt-work` と、追加の注釈プロセッサ (`androidx.hilt:hilt-compiler`) を足し、Worker に `@HiltWorker` を付け、`Application` で WorkManager の設定に `HiltWorkerFactory` を渡し、マニフェストから WorkManager の既定の初期化を外すとしています。この `androidx.hilt:hilt-compiler` は、`com.google.dagger:hilt-compiler` とは別のライブラリなので、カタログの別名も分けます。版と書き方は、足すときに公式のページで確かめます。
 
 ## パッケージ
 
@@ -171,7 +141,8 @@ UI 層とデータ層の 2 層で作ります。
 - Repository とデータ源は、`data/` に置きます。dat を取得したり保存したりするデータ源と Repository も `data/` に置き、`dat/` の解析を使います。
 - `dat/` には、dat 形式の解析 (`Reader` から読んで `Post` などを作る、取得や保存をしないコード) だけを置きます。
 - `dat/` と `ui/theme/` は、共通として今の場所に置きます。
-- `MainActivity` と、`NavDisplay` を出す `AatvNavDisplay`、`AatvApplication`、`AppContainer` は、ルートのパッケージに置きます。
+- `MainActivity` と、`NavDisplay` を出す `AatvNavDisplay`、`AatvApplication` は、ルートのパッケージに置きます。
+- Hilt の Module と、qualifier (`@Dispatcher`) は、`di/` に置きます。
 
 ルートのパッケージは `io.github.tenth151151.aathreadviewer` で、ファイルは `app/src/main/kotlin/` の下に置きます。次は、今のファイルの構成です。
 
@@ -179,8 +150,11 @@ UI 層とデータ層の 2 層で作ります。
 io/github/tenth151151/aathreadviewer/
 ├── MainActivity.kt
 ├── AatvNavDisplay.kt       (NavDisplay と、画面のキーごとの画面の対応)
-├── AatvApplication.kt      (AppContainer を持つ)
-├── AppContainer.kt         (Repository などを作る)
+├── AatvApplication.kt      (@HiltAndroidApp を付けた Application)
+├── di/                     (Hilt の Module と qualifier)
+│   ├── DataModule.kt       (Repository とデータ源の @Binds、ContentResolver と BoardType の @Provides)
+│   ├── DispatchersModule.kt (ディスパッチャーの @Provides)
+│   └── Dispatcher.kt       (ディスパッチャーを選ぶ qualifier と、その種類の enum)
 ├── dat/                    (dat 形式の解析。Reader から読み、取得や保存はしない)
 ├── ui/theme/               (共通のテーマ)
 ├── data/
@@ -223,17 +197,19 @@ Fake を使います。
 - State holders and UI state: https://developer.android.com/topic/architecture/ui-layer/stateholders
 - Data layer: https://developer.android.com/topic/architecture/data-layer
 - Domain layer: https://developer.android.com/topic/architecture/domain-layer
-- Manual dependency injection: https://developer.android.com/training/dependency-injection/manual
 - Test doubles: https://developer.android.com/training/testing/fundamentals/test-doubles
 - Lifecycle のリリースノート: https://developer.android.com/jetpack/androidx/releases/lifecycle
 - androidx.hilt のリリースノート (`hiltViewModel` を新しい artifact とパッケージに移したこと): https://developer.android.com/jetpack/androidx/releases/hilt
 - androidx.hilt.navigation.compose の `hiltViewModel` のリファレンス (非推奨の表示): https://developer.android.com/reference/kotlin/androidx/hilt/navigation/compose/hiltViewModel.composable
 - Hilt と Jetpack (WorkManager への注入): https://developer.android.com/training/dependency-injection/hilt-jetpack
+- Hilt の基本 (@Provides、qualifier、@ApplicationContext): https://developer.android.com/training/dependency-injection/hilt-android
 - Flow のテスト (`stateIn` と `backgroundScope`): https://developer.android.com/kotlin/flow/test
 - Coroutines のベストプラクティス (ディスパッチャーの注入と main-safe): https://developer.android.com/kotlin/coroutines/coroutines-best-practices
 - コルーチンのテスト (`StandardTestDispatcher` と `advanceUntilIdle`): https://developer.android.com/kotlin/coroutines/test
 - Navigation 3 のはじめかた: https://developer.android.com/guide/navigation/navigation-3/get-started
-- Navigation 3 のレシピ (画面ごとの ViewModel のスコープ): https://developer.android.com/guide/navigation/navigation-3/recipes/passingarguments
+- Now in Android の DispatchersModule (@Provides で Dispatchers.IO を返すモジュール): https://github.com/android/nowinandroid/blob/main/core/common/src/main/kotlin/com/google/samples/apps/nowinandroid/core/common/network/di/DispatchersModule.kt
+- Now in Android の NiaDispatchers (enum を引数に取る @Dispatcher の qualifier): https://github.com/android/nowinandroid/blob/main/core/common/src/main/kotlin/com/google/samples/apps/nowinandroid/core/common/network/NiaDispatchers.kt
+- Navigation 3 のレシピ (画面ごとの ViewModel のスコープと、assisted injection と creationCallback で画面のキーを ViewModel に渡す書き方): https://developer.android.com/guide/navigation/navigation-3/recipes/passingarguments
 - Dagger 2.60 のリリースノート: https://github.com/google/dagger/releases/tag/dagger-2.60
 
-Hilt 2.60.1 の動作確認は、公式のページではなく、使い捨てのプロジェクトでの検証にもとづきます。
+Hilt、KSP、androidx.hilt の版と、ビルドの結果は、このリポジトリで確かめたものです (「Hilt の注意」の節)。公式のページに書いてあることではありません。

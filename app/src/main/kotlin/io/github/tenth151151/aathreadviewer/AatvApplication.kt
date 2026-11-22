@@ -1,7 +1,7 @@
 package io.github.tenth151151.aathreadviewer
 
 import android.app.Application
+import dagger.hilt.android.HiltAndroidApp
 
-class AatvApplication : Application() {
-    val container: AppContainer by lazy { AppContainer(this) }
-}
+@HiltAndroidApp
+class AatvApplication : Application()

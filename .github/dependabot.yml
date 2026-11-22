@@ -47,7 +47,7 @@ updates:
           - "org.jetbrains.kotlin.*"
           - "org.jetbrains.kotlinx:kotlinx-serialization-*"
       # ビルド用の constraints (gradle/libs.versions.toml の bouncycastle、jose4j、jdom2、commons-lang3、httpclient、freemarker、guava) だけをまとめる。
-      # これらは AGP や Kover など、プラグインのビルド用クラスパスと lint に入る推移的な依存関係で、プラグインが試していない版に上がると壊れることがある。
+      # これらは AGP や Kover など、プラグインのビルド用クラスパスと lint と、KSP と Hilt の注釈プロセッサのクラスパスに入る推移的な依存関係で、プラグインが試していない版に上がると壊れることがある。
       # gradle-others と分けるのは、壊れたときに、junit や spotless の更新と切り分けやすくするためである。
       # パターンが gradle-others の "*" より具体的なので、こちらに入る。
       # major の更新は破壊的変更を含みうるので、gradle-others と同じく minor と patch だけにし、major は単独の PR にする。
@@ -63,7 +63,21 @@ updates:
         update-types:
           - minor
           - patch
-      # junit、spotless など、上の 3 つ以外をまとめる。
+      # Dagger と Hilt のライブラリ (com.google.dagger:*)、Hilt の Gradle プラグイン (com.google.dagger.hilt.android)、KSP のプラグイン (com.google.devtools.ksp) をまとめる。
+      # Hilt と KSP は、生成したコードの警告 (lint の checkGeneratedSources など) で CI が落ちることがある。
+      # gradle-others と分けるのは、落ちたときに、junit や spotless の更新と切り分けやすくするためである。
+      # androidx.hilt:* は、androidx のグループに入るので、ここには入れない。
+      # パターンが gradle-others の "*" より具体的なので、こちらに入る。
+      # major の更新は破壊的変更を含みうるので、gradle-others と同じく minor と patch だけにし、major は単独の PR にする。
+      hilt-ksp:
+        patterns:
+          - "com.google.dagger:*"
+          - "com.google.dagger.hilt.android"
+          - "com.google.devtools.ksp"
+        update-types:
+          - minor
+          - patch
+      # junit、spotless など、上の 4 つ以外をまとめる。
       # major の更新は破壊的変更を含みうるので、このグループに入れず、単独の PR にする。
       # AGP と Gradle Wrapper は、影響が大きいので、除外して単独の PR にする。
       # Kover (org.jetbrains.kotlinx.kover) も除外して単独の PR にする。0.x の版なので、DSL が変わる更新も minor 扱いになり、まとめた PR に入ると切り分けにくい。
