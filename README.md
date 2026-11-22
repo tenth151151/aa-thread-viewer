@@ -44,6 +44,20 @@ bin\windows\setup-emulator.bat 37.0 my-avd
 
 2 回目以降の実行では、システムイメージと AVD は作らず、指定した AVD のエミュレータが動いていれば、そのまま使います。
 
+Android Studio のデバイスマネージャーからの起動は、AVD の設定に従います。スクリプトは AVD の設定を変えず、起動のときに `-no-snapshot` を付けるだけです。公式のページによると、AVD の設定を変えていなければ、既定で、エミュレータを閉じるときにクイックブートのスナップショットを保存し、保存したスナップショットがあれば、次の起動でそれを読み込みます (クイックブート)。そのため、AVD の設定を変えていなければ、デバイスマネージャーから起動して閉じたあとの次の起動はクイックブートになり、手順 4 に書いたクイックブートの再開の失敗 (画面が暗いまま操作を受け付けない状態) が起きるおそれがあります。
+
+デバイスマネージャーから起動するときも、いつもコールドブートにしたいときは、公式のページ (Disable Quick Boot の節) にある次の手順で設定します。メニュー名とボタン名は、公式のページの表記を写したもので、実際の Android Studio の画面では確かめていません。Android Studio の版によって、画面が違うおそれがあります。
+
+1. **Tools > Device Manager** を選び、AVD の **Edit this AVD** (アイコン) を押します。
+2. **Show Advanced Settings** を押し、**Emulated Performance** までスクロールします。
+3. **Cold boot** を選びます。
+
+設定を変えずに、1 回だけコールドブートしたいときは、公式のページ (Cold boot once の節) にある、デバイスマネージャーの AVD のメニューから **Cold Boot** を押す方法を使います。
+
+デバイスマネージャーを使ったあとに、コンテナからこのスクリプトのつなぎ方でエミュレータを使うときは、下の「注意」の節のとおり、Android Studio を閉じてからスクリプトを実行してください。
+
+出典: https://developer.android.com/studio/run/emulator-snapshots
+
 コンテナで使うには、`.devcontainer/.env` で `ADB_SERVER_SOCKET` を有効にし、値の `<Windows のアドレス>` を Windows のアドレスに書き換えて、コンテナを作り直します (VS Code では `Dev Containers: Rebuild Container`)。NAT モードの WSL では、Windows の vEthernet (WSL) の IPv4 アドレスです。Windows では、`ipconfig` に出る vEthernet (WSL) の IPv4 アドレスを見ます。WSL では、devcontainer のコンテナではなく、WSL のシェル (Ubuntu のターミナルなど) で `ip route show | grep -i default | awk '{ print $3}'` を実行して調べます。コンテナの中で実行すると、既定経路の `172.17.0.1` (docker0) が出ますが、Windows のアドレスではないので使えません。`.env` の扱いは次のとおりです。
 
 - すでに `.devcontainer/.env` がある人は、`.devcontainer/.env.example` の `ADB_SERVER_SOCKET` の行を、`.env` に足し、値の `<Windows のアドレス>` を書き換えます。
