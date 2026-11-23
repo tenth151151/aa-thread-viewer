@@ -5,17 +5,29 @@
 // 追いついて要らなくなっていれば、外す。
 // strictly や force は使わず、最低でもこの版にする指定にとどめる。
 buildscript {
+    // constraints を当てるライブラリの、唯一の一覧 ("group:name:version")。root の classpath の当て先と、:app の当て先と、両方の検査の期待する版が、この一覧から決まる。
+    // buildscript のブロックの中の val は、ブロックの外から見えないので、extra で渡す。:app は rootProject の extra から読む。
+    // 版が空のものは、検査 (checkBuildConstraints) が失敗にするので、ここでは空のまま渡す。
+    val buildConstraintNotations =
+        listOf(
+            libs.bouncycastle.bcprov,
+            libs.bouncycastle.bcpkix,
+            libs.bouncycastle.bcutil,
+            libs.jose4j,
+            libs.jdom2,
+            libs.commons.lang3,
+            libs.httpclient,
+            libs.freemarker,
+            libs.guava,
+        ).map {
+            val dependency = it.get()
+            "${dependency.module}:${dependency.versionConstraint.requiredVersion}"
+        }
+    extra["buildConstraintNotations"] = buildConstraintNotations
+
     dependencies {
         constraints {
-            classpath(libs.bouncycastle.bcprov)
-            classpath(libs.bouncycastle.bcpkix)
-            classpath(libs.bouncycastle.bcutil)
-            classpath(libs.jose4j)
-            classpath(libs.jdom2)
-            classpath(libs.commons.lang3)
-            classpath(libs.httpclient)
-            classpath(libs.freemarker)
-            classpath(libs.guava)
+            buildConstraintNotations.filterNot { it.endsWith(":") }.forEach { classpath(it) }
         }
     }
 }
@@ -47,3 +59,6 @@ spotless {
         ktlint(libs.versions.ktlint.get())
     }
 }
+
+// ビルド用の constraints の検査 (checkBuildConstraints)。上の buildscript の constraints から期待する版を読み、buildscript の classpath を調べる。
+apply(from = "gradle/build-constraints-check.gradle.kts")
