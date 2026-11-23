@@ -2,7 +2,7 @@
 
 ## 開発
 
-開発環境は devcontainer です。JDK と Android SDK のバージョンは、リポジトリのルートの `versions.properties` にまとめています。devcontainer、CI、Gradle がこのファイルを読むので、バージョンを変えるときは、このファイルだけを書き換えます。JDK は `JDK_VERSION` と `JDK_SDKMAN_ID` の両方を直します。`targetSdk` と `minSdk` は、アプリの挙動に関わる設定なので、`app/build.gradle.kts` に書いています。
+開発環境は devcontainer です。JDK と Android SDK のバージョンと、エミュレータのシステムイメージの既定の版 (`EMULATOR_API`) は、リポジトリのルートの `versions.properties` にまとめています。devcontainer、CI、Gradle がこのファイルを読み、`bin/windows/setup-emulator.ps1` は `EMULATOR_API` だけを読むので、バージョンを変えるときは、このファイルだけを書き換えます。JDK は `JDK_VERSION` と `JDK_SDKMAN_ID` の両方を直します。`targetSdk` と `minSdk` は、アプリの挙動に関わる設定なので、`app/build.gradle.kts` に書いています。
 
 ```bash
 # CI と同じ確認をする (全角の丸括弧の検査、Windows のスクリプトの文字コードの検査、単体テスト、Android Lint、format のチェック、カバレッジの基準値の検査、デバッグビルド、カバレッジのレポートの作成)。
@@ -31,7 +31,7 @@ bin\windows\setup-emulator.bat
 bin\windows\setup-emulator.bat 37.0 my-avd
 ```
 
-引数は 2 つで、どちらも省略できます。1 つ目はシステムイメージの API の版で、既定は、`versions.properties` の `ANDROID_PLATFORM` (`android-<版>`) の版です。`system-images;android-<版>;google_apis;x86_64` を使います。2 つ目は AVD の名前で、既定は `aatv-api-<版>` です。スクリプトは、次のことをこの順で行います。
+引数は 2 つで、どちらも省略できます。1 つ目はシステムイメージの API の版で、既定は、`versions.properties` の `EMULATOR_API` の値です。`system-images;android-<版>;google_apis;x86_64` を使います。2 つ目は AVD の名前で、既定は `aatv-api-<版>` です。スクリプトは、次のことをこの順で行います。
 
 1. システムイメージがなければ入れます。Android SDK のライセンスに同意していないときは、`sdkmanager` が同意を尋ねます。
 2. AVD がなければ作ります。すでにあるシステムイメージと AVD は、作り直しません。
@@ -154,7 +154,7 @@ worktree が 1 つもないときは、パスが見つからずエラーで終�
 依存関係の更新は、Dependabot (`.github/dependabot.yml`) と手作業で分担しています。
 
 - Dependabot が更新するもの: `gradle/libs.versions.toml` の `[libraries]` と `[plugins]` (ktlint は `[versions]` にしかないため対象外)、Gradle Wrapper、GitHub Actions。毎週月曜の朝に確認し、PR を作ります。
-- 手で更新するもの: `versions.properties` (JDK と Android SDK)、`.devcontainer/Dockerfile` の `ARG` (`WTP_VERSION`、`GIT_CORE_PPA_KEYS`)、ktlint。ktlint は `gradle/libs.versions.toml` の `[versions]` にしかなく、Dependabot が読まないためです。spotless を上げるときは、ktlint もいっしょに見直します。
+- 手で更新するもの: `versions.properties` (JDK、Android SDK、エミュレータのシステムイメージの版)、`.devcontainer/Dockerfile` の `ARG` (`WTP_VERSION`、`GIT_CORE_PPA_KEYS`)、ktlint。ktlint は `gradle/libs.versions.toml` の `[versions]` にしかなく、Dependabot が読まないためです。spotless を上げるときは、ktlint もいっしょに見直します。
 
 PR の分け方は次のとおりです。
 

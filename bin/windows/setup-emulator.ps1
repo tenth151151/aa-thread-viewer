@@ -16,7 +16,7 @@
 #
 # 引数:
 #   1 番目  システムイメージの API の版。既定は、リポジトリのルートの versions.properties の
-#           ANDROID_PLATFORM (android-<版>) の版。
+#           EMULATOR_API の値 (android- を付けない版。例: 37.0)。
 #           system-images;android-{版};google_apis;x86_64 を使う。
 #   2 番目  AVD の名前。既定は aatv-api-{版}。
 #
@@ -53,12 +53,12 @@ function Write-Fail([string]$Message) {
 
 function Show-Usage {
     Write-Host '使い方: setup-emulator.bat [API の版 [AVD の名前]]'
-    Write-Host '  API の版   既定は、versions.properties の ANDROID_PLATFORM (android-<版>) の版です。system-images;android-<版>;google_apis;x86_64 を使います。'
+    Write-Host '  API の版   既定は、versions.properties の EMULATOR_API の値です。system-images;android-<版>;google_apis;x86_64 を使います。'
     Write-Host '  AVD の名前 既定は aatv-api-<版> です。'
     Write-Host 'PowerShell のセッションから版を渡すときは、引用符で囲んでください (例: .\setup-emulator.ps1 ''37.0'')。'
 }
 
-# versions.properties の ANDROID_PLATFORM (android-<版>) から、版を読む。読めないときは null を返す。
+# versions.properties の EMULATOR_API から、版を読む。読めないときは null を返す。
 function Get-DefaultApi {
     $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     $file = Join-Path $root 'versions.properties'
@@ -67,9 +67,9 @@ function Get-DefaultApi {
         return $null
     }
     foreach ($line in (Get-Content -LiteralPath $file -Encoding UTF8)) {
-        if ($line -match '^ANDROID_PLATFORM=android-(\d+(\.\d+)*)\s*$') { return $Matches[1] }
+        if ($line -match '^EMULATOR_API=(\d+(\.\d+)*)\s*$') { return $Matches[1] }
     }
-    Write-Fail 'versions.properties に ANDROID_PLATFORM=android-<版> の行が見つかりません。'
+    Write-Fail 'versions.properties に EMULATOR_API=<版> の行が見つかりません。'
     return $null
 }
 
