@@ -4,7 +4,7 @@ agp = "9.5.2"
 # AGP が要求する KGP のバージョン (AGP 9.4.1 は 2.2.10) 以上にする。下回っても AGP の要求まで引き上げられるのでビルドは通るが、ここの値が実際の値と食い違う。
 # AGP を上げたときは、./gradlew buildEnvironment で確かめる。
 kotlin = "2.4.21"
-composeBom = "2026.09.00"
+composeBom = "2026.11.01"
 activityCompose = "1.13.0"
 navigation3 = "1.2.0"
 lifecycle = "2.11.0"
