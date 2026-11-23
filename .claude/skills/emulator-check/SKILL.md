@@ -33,13 +33,17 @@ description: 起動済みのエミュレータにアプリを入れて、dat を
   common="$(git rev-parse --path-format=absolute --git-common-dir)" || { echo "メインの作業ツリーを調べられないので、証拠のディレクトリを決められません。" >&2; exit 1; }
   evidence="$(dirname "$common")/.tmp/$branch"
   mkdir -p "$evidence"
-  # 引数は、名前の幹と拡張子。同じ名前のファイルがあれば、-2、-3 を付けた空きのパスを返す。
+  # 呼ぶ前に、変数 stem (名前の幹) と ext (拡張子) を設定する。
+  # 同じ名前のファイルがあれば、-2、-3 を付けた空きのパスを返す。
+  # 位置の引数は使わない (理由は下の説明を見る)。
   evidence_path() {
-    local n=1 p="$evidence/$1.$2"
-    while [ -e "$p" ]; do n=$((n + 1)); p="$evidence/$1-$n.$2"; done
+    local n=1 p="$evidence/$stem.$ext"
+    while [ -e "$p" ]; do n=$((n + 1)); p="$evidence/$stem-$n.$ext"; done
     printf '%s\n' "$p"
   }
   ```
+
+  - `evidence_path` は、変数 `stem` と `ext` を読みます (例: `stem=sample ext=dat; evidence_path`)。位置の引数を使わないのは、スキルを引数つきで呼んだときに、本文のドルの記号に数字や引数の全体を表す語が続く書き方が、渡した引数の語に置き換わるためです。公式の Skills のページ (https://code.claude.com/docs/en/skills) の「Available string substitutions」の節には、引数の置き換えの書き方が載っています。コードブロックの中でも置き換わるとは、そのページに直接は書かれていません。このスキルを引数つきで呼んだとき、コードブロックの中の書き方が置き換わって表示されたのを観察しました (Claude Code 2.1.330)。コードを足すときも、シェルの位置の引数や、awk のフィールドの指定のように、ドルの記号に数字が続く書き方を、スキルの本文に書きません。
 
 ## 1. つながるかを確かめる
 
@@ -99,7 +103,8 @@ dat は `windows-31j` (CP932) の文字コードで、1 行が 1 件のレスで
 2. CP932 に変換します。変換後の dat は、端末に置く確かめの dat なので、`<証拠のディレクトリ>` に出します。出力先は `evidence_path` で決め (例: `sample.dat`。あれば `sample-2.dat`)、使ったパスを控えます。以降の `<証拠の dat>` は、控えたパスです。
 
    ```bash
-   dat="$(evidence_path sample dat)"
+   stem=sample ext=dat
+   dat="$(evidence_path)"
    iconv -f UTF-8 -t CP932 <スクラッチパッド>/sample-utf8.dat > "$dat"
    echo "$dat"
    ```
@@ -119,17 +124,25 @@ dat は `windows-31j` (CP932) の文字コードで、1 行が 1 件のレスで
 
 ## 4. 端末に置く
 
-置く前に、`ls` で同じパスにファイルがないかを確かめ、置くパスを決めます。`No such file or directory` になれば、空いているパスです。ファイルがあるときは、上書きせず、別の名前 (例: `sample-2.dat`) にして、その名前でも `ls` で確かめます。空いていると確かめたパスだけに置き、手順 7 で消すために控えます。
+端末に置く名前は、毎回ちがう名前にします (日時を入れます)。そのうえで、置く前に、同じパスにファイルがないかを確かめ、ないとはっきり分かったときだけ進みます。置いたパスは、手順 7 で消すために控えます。
+
+`adb shell` の終了コードでは、「ファイルがない」と「端末につながっていない」や「`adb shell` がほかの理由で失敗した」を区別できません。そのため、端末の側で `exists` か `missing` を出させ、その文字列を受け取ります。`missing` と出たときだけ進み、それ以外 (`exists`、空、エラー) は止めます。`adb shell` の出力の末尾に `\r` が付くことがあるので、外してから比べます。先に `adb get-state` で、出力が `device` であることも確かめます。
 
 ```bash
-adb shell ls /sdcard/Download/sample.dat
-# No such file or directory になれば、このパスに置く。ファイルがあれば sample-2.dat などで ls し直し、空いている名前を決める。
-adb push <証拠の dat> /sdcard/Download/sample.dat
-adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/sample.dat
+[ "$(adb get-state 2>/dev/null)" = device ] || { echo "端末につながっていません。" >&2; exit 1; }
+remote="/sdcard/Download/aatv-check-$(date +%Y%m%d-%H%M%S).dat"
+r="$(adb shell "[ -e '$remote' ] && echo exists || echo missing")"
+[ "${r%$'\r'}" = missing ] || { echo "端末に $remote があるか、あるかどうかを確かめられなかったので、先に進みません。" >&2; exit 1; }
+echo "$remote"
+adb push <証拠の dat> "$remote"
+adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d "file://$remote"
 ```
 
-- `push` とブロードキャストのパスは、`ls` で空いていると確かめたパスに合わせます (別の名前にしたときは、3 つの行すべてでその名前を使います。`push` の宛先の名前を変えるだけで、手順 3 で控えた `<証拠の dat>` の名前は変えなくてかまいません)。
-- 3 行目のスキャンのブロードキャストは、必須ではありません。Android 17 のエミュレータでは、送らなくても、ファイルの選択画面にファイルが出ました。まず `ls` と `push` だけを実行し、選択画面にファイルが出なかったときにブロードキャストを送ります。
+- 端末に置く名前は、証拠のディレクトリの側の名前 (手順 3 の `sample.dat` など) とは別です。確かめで止めたときは、何も置かずに、ユーザーに伝えます。
+- 名前は秒単位なので、同じ秒のうちにこの手順をやり直すと、確かめで止まります。止まったときは、1 秒以上待ってから、名前を決め直します。
+- 次の呼び出しで使うので、`echo` で出した `$remote` のパスを文章で控えます (シェルの変数は呼び出しをまたいで残らないためです)。控えるのは、確かめを通って `push` を実行したときです。`push` が途中で失敗したときも、ファイルが一部できていることがあるので、成否にかかわらず控えて、手順 7 の消す対象に入れます。確かめで止めたとき (ファイルがもうあったとき、確かめられなかったとき) は、置いていないので、控えません。
+- 複数の端末があるときは、`adb get-state`、`adb shell`、`adb push` のすべてに `-s <シリアル>` を付けます。
+- コードブロックの最後の行のスキャンのブロードキャストは、必須ではありません。Android 17 のエミュレータでは、送らなくても、ファイルの選択画面にファイルが出ました。まず、ブロードキャストの行を除いた `push` までを実行し、選択画面にファイルが出なかったときにブロードキャストを送ります。あとから送る呼び出しではシェルの変数 `remote` が残っていないので、行をそのまま写さず、控えた dat のパスを書き込んで送ります (例: `adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file://<控えた dat のパス>`)。
 - 新しい Android では、このブロードキャストが非推奨のことがあり、効かないときがあります。送っても出ないときは、選択画面を開き直してから、ユーザーに伝えます。
 - 選択画面にファイルが出たかどうか (ブロードキャストを送ったかどうかも) を、エミュレータの版と一緒に報告に書きます。
 
@@ -137,21 +150,34 @@ adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:
 
 画面の部品は、`uiautomator dump` で位置を調べて、`input tap` で押します。
 
-dump は端末にファイルを書くので、最初の dump の前に、手順 4 と同じく `adb shell ls /sdcard/window_dump.xml` で空いているかを確かめます。ファイルがあるときは、上書きせず、別の名前 (例: `/sdcard/window_dump-2.xml`) にして、その名前でも `ls` で確かめます。空いていると確かめたパスを、以降のすべての dump の出力先にし (手順 6 の dump も同じです)、手順 7 で消すために控えます。次のコードは、空いていたのが `/sdcard/window_dump.xml` だった例です。
+dump は端末にファイルを書くので、最初の dump の前に、次のコードブロックを実行します。手順 4 と同じ形で、手で書き換えずにそのまま実行できます。
 
 ```bash
-adb shell ls /sdcard/window_dump.xml
-adb shell uiautomator dump /sdcard/window_dump.xml
-dump="$(evidence_path window_dump-01-home xml)"   # 証拠のファイルは、evidence_path で上書きを避ける
-adb exec-out cat /sdcard/window_dump.xml > "$dump"
+[ "$(adb get-state 2>/dev/null)" = device ] || { echo "端末につながっていません。" >&2; exit 1; }
+remote_dump="/sdcard/aatv-window-dump-$(date +%Y%m%d-%H%M%S).xml"
+r="$(adb shell "[ -e '$remote_dump' ] && echo exists || echo missing")"
+[ "${r%$'\r'}" = missing ] || { echo "端末に $remote_dump があるか、あるかどうかを確かめられなかったので、先に進みません。" >&2; exit 1; }
+echo "$remote_dump"
+```
+
+- 決めたパスを、以降のすべての dump の出力先にし (手順 6 の dump も同じです)、手順 7 で消すために控えます。控えるのは、最初の dump を実行したときです。dump が途中で失敗したときも、成否にかかわらず控えます。確かめで止めたとき (ファイルがもうあったとき、確かめられなかったとき) は、控えません。同じ秒のうちにやり直して止まったときの扱いも、手順 4 と同じです。
+
+控えた `$remote_dump` のパスを使って、dump を取ります。次のコードの `<端末の dump>` は、控えたパスです。
+
+```bash
+adb shell uiautomator dump <端末の dump>
+stem=window_dump-01-home ext=xml   # 証拠のファイルは、evidence_path で上書きを避ける。
+dump="$(evidence_path)"
+adb exec-out cat <端末の dump> > "$dump"
 echo "$dump"
 adb shell input tap <x> <y>
-shot="$(evidence_path screen-01-home png)"
+stem=screen-01-home ext=png
+shot="$(evidence_path)"
 adb exec-out screencap -p > "$shot"
 echo "$shot"
 ```
 
-- 端末の `/sdcard/window_dump.xml` は、dump のたびに同じパスへ上書きしてかまいません (自分が置いたファイルで、手順 7 で消します)。上書きを避けるのは、`<証拠のディレクトリ>` の側のファイルです。dump と画面ごとに、順番と画面が分かる名前 (`window_dump-02-thread`、`screen-02-thread` など) を付けます。
+- 端末の dump の出力先 (`$remote_dump`) は、dump のたびに同じパスへ上書きしてかまいません (自分が決めた名前で、手順 7 で消します)。上書きを避けるのは、`<証拠のディレクトリ>` の側のファイルです。dump と画面ごとに、順番と画面が分かる名前 (`window_dump-02-thread`、`screen-02-thread` など) を付けます。
 - 押す場所は、控えた dump のファイル (`<証拠の dump>`) の該当する `node` の `bounds="[左,上][右,下]"` から、中心の座標を計算します。画面の表示が変わるたびに、dump を取り直します。
 - 座標は、dump から次のように探せます (ボタンの文字が `dat を開く` の例)。`bounds` の真ん中を `input tap` に渡します。
 
@@ -165,7 +191,7 @@ echo "$shot"
 
   ```bash
   adb shell wm size   # 例: Physical size: 320x640
-  # x=160 で、y=500 から y=150 へ、300 ミリ秒かけて動かす
+  # x=160 で、y=500 から y=150 へ、300 ミリ秒かけて動かす。
   adb shell input swipe 160 500 160 150 300
   ```
 - スクリーンショットは Read ツールで見られます。ファイル名には、何の画面かが分かる名前を付けます。
@@ -209,7 +235,7 @@ adb shell dumpsys window | grep -n 'type=navigationBars'
    adb shell input keyevent KEYCODE_APP_SWITCH
    ```
 
-   最近使ったアプリの一覧が出たら、`uiautomator dump` (出力先は手順 5 で決めたパスです) で、アプリのカード (`snapshot` を含む node) の `bounds` を探し、その真ん中を `input tap` で押すと、アプリに戻ります。
+   最近使ったアプリの一覧が出たら、`uiautomator dump` (出力先は手順 5 で決めて控えたパスです) で、アプリのカード (`snapshot` を含む node) の `bounds` を探し、その真ん中を `input tap` で押すと、アプリに戻ります。
 6. 3 秒待ってから、戻した画面を `uiautomator dump` の `text` で確かめます。
 
 戻したあとのスクリーンショットは、黒一色になることがあり、Android 17 のエミュレータ (手順 8 の確かめた環境) で試したときは 2 回とも、5 秒空けても黒一色でした。戻したあとは、スクリーンショットではなく `uiautomator dump` の `text` で内容を確かめ、見た目は確かめていないと報告します。
@@ -222,17 +248,17 @@ adb shell dumpsys window | grep -n 'type=navigationBars'
 - 消すのは、控えたパスだけです。1 つずつ `adb shell rm <パス>` で消します。ワイルドカードと `-r` は使いません。
 
   ```bash
-  adb shell rm /sdcard/Download/sample.dat
-  adb shell rm /sdcard/window_dump.xml
+  adb shell rm <控えた dat のパス>
+  adb shell rm <控えた dump のパス>
   ```
 
-- 自分で置いていないファイルは消しません。手順 4 の dat と手順 5 の dump の出力先は、どちらも、置く前に同じパスのファイルがないかを確かめ、あるときは別の名前にするので、控えたパスは自分が置いたものだけです。
+- 自分で置いていないファイルは消しません。手順 4 の dat と手順 5 の dump の出力先は、どちらも、毎回ちがう名前 (日時入り) にし、置く前に同じパスのファイルがないことを確かめ、ないとはっきり分かったときだけ進むので、控えたパスは自分が置いたものだけです。確かめで止めたパス (ファイルがもうあったとき、確かめられなかったとき) は、控えません (置いていないので、消しません)。`push` や dump を実行したあとは、途中で失敗しても控えて、消す対象に入れます。
 - 入れた debug のアプリは、消さずに残します。アンインストールは、守ることのとおり、依頼がなければしません。
 - 手順 8 の報告に、消したファイルと、消さずに残したファイル (入れた debug のアプリなど) を書きます。
 
 ## 8. 報告する
 
-- 確かめた版: `adb version` と、Android の版。つながらなかったときは、つながらなかったこと。このスキルの手順を確かめた版は、adb 37.0.1 と Android 17 のエミュレータ (画面は 320x640、密度 160、ジェスチャーのナビゲーション) です。
+- 確かめた版: `adb version` と、Android の版。つながらなかったときは、つながらなかったこと。このスキルの手順を確かめた版は、adb 37.0.1 と Android 17 のエミュレータ (画面は 320x640、密度 160、ジェスチャーのナビゲーション) です。手順 4 の存在の確かめは、adb 37.0.1 と Android 17 のエミュレータで、存在するパス (`/sdcard/Download`) が `exists`、存在しないパスが `missing` を出すことを確かめました (出力の末尾に `\r` は付きませんでした)。
 - 入れた APK と、確かめたパッケージ。
 - 確かめた操作と、見たもの (スクリーンショットの場所、dump の `text`)。
 - 確かめていないこと (戻したあとの見た目、システムバーの分の余白、スキャンのブロードキャストの効き目など)。
