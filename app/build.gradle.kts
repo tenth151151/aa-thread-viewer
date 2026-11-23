@@ -162,21 +162,18 @@ dependencies {
     testImplementation(libs.kotlinx.serialization.json)
 }
 
+// ビルド用の constraints を当てるライブラリ ("group:name:version")。一覧は root の build.gradle.kts の buildscript にだけあり、extra から読む (root の configuration は解決しない)。
+// 当て先の configuration すべてと、検査 (checkBuildConstraints) の期待する版が、この一覧から決まる。版が空のものは、検査が失敗にする。
+val buildConstraintNotations =
+    (rootProject.extra["buildConstraintNotations"] as? List<*>)?.filterIsInstance<String>().orEmpty()
+
 // lint の実行用クラスパス (androidLintTool) に入る推移的な依存関係のうち、脆弱性の修正版がまだ取り込まれていないものを引き上げる。
-// 考え方は root の build.gradle.kts の buildscript と同じで、strictly や force は使わない。
+// 考え方は root の build.gradle.kts の buildscript と同じで、strictly や force は使わない。当てる一覧は、上の buildConstraintNotations である。
 // 今の androidLintTool に出てこないもの (jose4j、jdom2、freemarker) も、AGP を上げて入ってきたときに備えて書いておく。グラフにないものへの constraint は何もしない。
 // AGP を上げたときは、./gradlew :app:dependencies --configuration androidLintTool で、ここにない依存関係が入っていないか、要らなくなったものがないかを確かめ直す。
 dependencies {
     constraints {
-        add("androidLintTool", libs.bouncycastle.bcprov)
-        add("androidLintTool", libs.bouncycastle.bcpkix)
-        add("androidLintTool", libs.bouncycastle.bcutil)
-        add("androidLintTool", libs.jose4j)
-        add("androidLintTool", libs.jdom2)
-        add("androidLintTool", libs.commons.lang3)
-        add("androidLintTool", libs.httpclient)
-        add("androidLintTool", libs.freemarker)
-        add("androidLintTool", libs.guava)
+        buildConstraintNotations.filterNot { it.endsWith(":") }.forEach { add("androidLintTool", it) }
     }
 }
 
@@ -184,7 +181,7 @@ dependencies {
 // ksp で始まり ProcessorClasspath で終わる名前と、hiltAnnotationProcessor で始まる名前と、kspClasspath で終わる名前の configuration を、作られたときに名前で当てる。
 // AGP の variant やテストの configuration が増えても、書き足さずに当たるようにするため。
 // kspClasspath で終わる名前に今当たるのは、AGP の内部の KSP 用クラスパス (_agp_internal_*_kspClasspath) である。広い条件にしているのは、AGP の版で名前が変わったときに漏れを減らすためだが、名前が変わっても当たり続けるとは限らない。KSP を動かすときに使われるかは確かめていない。
-// AGP を上げたときは、./gradlew :app:dependencies --configuration _agp_internal_debug_kspClasspath で、configuration があり、guava の行に constraints の印 (c) が付いているかを確かめ直す。
+// 当て漏れは checkBuildConstraints (gradle/build-constraints-check.gradle.kts) が見つける。
 // Hilt のコンパイラ (KSP のプロセッサ) と Hilt の Gradle プラグインの注釈プロセッサが、guava などの推移的な依存関係を引き込む。
 configurations
     .matching {
@@ -195,15 +192,10 @@ configurations
         val configurationName = name
         dependencies {
             constraints {
-                add(configurationName, libs.bouncycastle.bcprov)
-                add(configurationName, libs.bouncycastle.bcpkix)
-                add(configurationName, libs.bouncycastle.bcutil)
-                add(configurationName, libs.jose4j)
-                add(configurationName, libs.jdom2)
-                add(configurationName, libs.commons.lang3)
-                add(configurationName, libs.httpclient)
-                add(configurationName, libs.freemarker)
-                add(configurationName, libs.guava)
+                buildConstraintNotations.filterNot { it.endsWith(":") }.forEach { add(configurationName, it) }
             }
         }
     }
+
+// ビルド用の constraints の検査。
+apply(from = rootProject.file("gradle/build-constraints-check.gradle.kts"))
