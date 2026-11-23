@@ -47,7 +47,7 @@ updates:
           - "org.jetbrains.kotlin.*"
           - "org.jetbrains.kotlinx:kotlinx-serialization-*"
       # ビルド用の constraints (gradle/libs.versions.toml の bouncycastle、jose4j、jdom2、commons-lang3、httpclient、freemarker、guava) だけをまとめる。
-      # これらは AGP や Kover など、プラグインのビルド用クラスパスと lint と、KSP と Hilt の注釈プロセッサのクラスパスに入る推移的な依存関係で、プラグインが試していない版に上がると壊れることがある。
+      # これらは AGP や Kover など、プラグインのビルド用クラスパスと lint と、KSP と Hilt の注釈プロセッサと名前が kspClasspath で終わるクラスパスに入る推移的な依存関係で、プラグインが試していない版に上がると壊れることがある。
       # gradle-others と分けるのは、壊れたときに、junit や spotless の更新と切り分けやすくするためである。
       # パターンが gradle-others の "*" より具体的なので、こちらに入る。
       # major の更新は破壊的変更を含みうるので、gradle-others と同じく minor と patch だけにし、major は単独の PR にする。
