@@ -180,14 +180,17 @@ dependencies {
     }
 }
 
-// KSP のプロセッサのクラスパス (kspDebugKotlinProcessorClasspath など) と、Hilt の注釈プロセッサのクラスパス (hiltAnnotationProcessorDebug など) にも、上と同じ constraints を足す。
-// ksp で始まり ProcessorClasspath で終わる名前と、hiltAnnotationProcessor で始まる名前の configuration を、作られたときに拾う。
+// KSP のプロセッサのクラスパス (kspDebugKotlinProcessorClasspath など) と、Hilt の注釈プロセッサのクラスパス (hiltAnnotationProcessorDebug など) と、名前が kspClasspath で終わる configuration にも、上と同じ constraints を足す。
+// ksp で始まり ProcessorClasspath で終わる名前と、hiltAnnotationProcessor で始まる名前と、kspClasspath で終わる名前の configuration を、作られたときに名前で当てる。
 // AGP の variant やテストの configuration が増えても、書き足さずに当たるようにするため。
+// kspClasspath で終わる名前に今当たるのは、AGP の内部の KSP 用クラスパス (_agp_internal_*_kspClasspath) である。広い条件にしているのは、AGP の版で名前が変わったときに漏れを減らすためだが、名前が変わっても当たり続けるとは限らない。KSP を動かすときに使われるかは確かめていない。
+// AGP を上げたときは、./gradlew :app:dependencies --configuration _agp_internal_debug_kspClasspath で、configuration があり、guava の行に constraints の印 (c) が付いているかを確かめ直す。
 // Hilt のコンパイラ (KSP のプロセッサ) と Hilt の Gradle プラグインの注釈プロセッサが、guava などの推移的な依存関係を引き込む。
 configurations
     .matching {
         (it.name.startsWith("ksp") && it.name.endsWith("ProcessorClasspath")) ||
-            it.name.startsWith("hiltAnnotationProcessor")
+            it.name.startsWith("hiltAnnotationProcessor") ||
+            it.name.endsWith("kspClasspath")
     }.configureEach {
         val configurationName = name
         dependencies {
